@@ -10,7 +10,7 @@ on:
 
 jobs:
   promote:
-    uses: ute-homelab/ute-ci-templates/.github/workflows/gitops-image-promotion.yml@v1
+    uses: ute-workspace/ci-templates/.github/workflows/gitops-image-promotion.yml@v1
     with:
       deployment-environment: client-production
       gitops-repository: CLIENT_ORG/client-gitops

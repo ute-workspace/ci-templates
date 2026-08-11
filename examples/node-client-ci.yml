@@ -7,7 +7,7 @@ on:
 
 jobs:
   ci:
-    uses: ute-homelab/ute-ci-templates/.github/workflows/node-ci.yml@v1
+    uses: ute-workspace/ci-templates/.github/workflows/node-ci.yml@v1
     with:
       node-version: "20"
       working-directory: src
