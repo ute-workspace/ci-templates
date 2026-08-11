@@ -69,8 +69,8 @@ jobs:
         run: |
           set -euo pipefail
           cd gitops
-          git config user.name "ute-gitops-bot"
-          git config user.email "ute-gitops-bot@users.noreply.github.com"
+          git config user.name "gitops-bot"
+          git config user.email "gitops-bot@users.noreply.github.com"
           git add "${{ inputs.kustomization-path }}/kustomization.yaml"
           git commit -m "chore(gitops): promote ${{ inputs.image-name }}" \
             -m "Image: ${{ inputs.image-ref }}"

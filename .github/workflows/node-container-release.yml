@@ -105,12 +105,12 @@ jobs:
       # Best-effort: build provenance attestations require a feature this
       # org's current billing plan doesn't have for private repos --
       # confirmed for real via container-release.yml's own first release
-      # (ute-jenkins). Hasn't been observed here yet only because
-      # ute-demo-nodejs's own image publishes under a different GitHub
-      # org namespace; fixing proactively so any future ute-homelab-
-      # namespaced consumer of this workflow doesn't hit the same
-      # release-blocking failure. The image push above already succeeded
-      # by this point either way.
+      # (jenkins, formerly ute-jenkins). Hasn't been observed here yet
+      # only because ute-demo-nodejs's own image publishes under a
+      # different GitHub org namespace; fixing proactively so any future
+      # ute-workspace-namespaced consumer of this workflow doesn't hit
+      # the same release-blocking failure. The image push above already
+      # succeeded by this point either way.
       - uses: actions/attest-build-provenance@v2
         continue-on-error: true
         with:

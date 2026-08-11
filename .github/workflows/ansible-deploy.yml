@@ -12,7 +12,7 @@ on:
         type: string
       ansible-repository:
         required: false
-        default: ute-homelab/ute-ansible
+        default: ute-workspace/ansible
         type: string
       ansible-ref:
         required: false
@@ -56,21 +56,21 @@ jobs:
         with:
           repository: ${{ inputs.ansible-repository }}
           ref: ${{ inputs.ansible-ref }}
-          path: ute-ansible
+          path: ansible
           token: ${{ secrets.ANSIBLE_REPOSITORY_TOKEN }}
 
       - name: Install pinned Ansible collections
         shell: bash
-        run: ansible-galaxy collection install -r ute-ansible/requirements.yml
+        run: ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Run deployment
         shell: bash
         env:
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          UTE_RUNTIME_ENV_CONTENT: ${{ secrets.RUNTIME_ENV_CONTENT }}
+          RUNTIME_ENV_CONTENT: ${{ secrets.RUNTIME_ENV_CONTENT }}
         run: |
-          cd ute-ansible
+          cd ansible
           export ANSIBLE_PRIVATE_KEY_FILE="$HOME/.ssh/id_ed25519"
           ansible-playbook \
             -i "${{ inputs.inventory-path }}" \

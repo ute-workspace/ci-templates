@@ -12,17 +12,17 @@ on:
 
 jobs:
   deploy:
-    uses: ute-homelab/ute-ci-templates/.github/workflows/ansible-deploy.yml@v1
+    uses: ute-workspace/ci-templates/.github/workflows/ansible-deploy.yml@v1
     with:
       deployment-environment: production
       runner-label: client-production-deploy
-      ansible-repository: ute-homelab/ute-ansible
+      ansible-repository: ute-workspace/ansible
       ansible-ref: v1
       playbook: playbooks/deploy-compose-release.yml
       inventory-path: /opt/ute/inventory/client-production/hosts.yml
     secrets:
       ANSIBLE_PRIVATE_KEY: ${{ secrets.ANSIBLE_DEPLOY_PRIVATE_KEY }}
-      ANSIBLE_REPOSITORY_TOKEN: ${{ secrets.UTE_ANSIBLE_READ_TOKEN }}
+      ANSIBLE_REPOSITORY_TOKEN: ${{ secrets.ANSIBLE_READ_TOKEN }}
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-      RUNTIME_ENV_CONTENT: ${{ secrets.UTE_RUNTIME_ENV_CONTENT }}
+      RUNTIME_ENV_CONTENT: ${{ secrets.RUNTIME_ENV_CONTENT }}
