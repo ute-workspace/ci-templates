@@ -1,4 +1,4 @@
-# ute-ci-templates
+# ci-templates
 
 Public, versioned reusable GitHub Actions workflows for internal and client repositories.
 
