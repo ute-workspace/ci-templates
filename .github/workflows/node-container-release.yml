@@ -50,9 +50,9 @@ jobs:
           set -eu
           npm ci
           npm run lint
-          npm start > /tmp/ute-node-release.log 2>&1 &
+          npm start > /tmp/node-release.log 2>&1 &
           app_pid=$!
-          trap 'kill "$app_pid" 2>/dev/null || true; cat /tmp/ute-node-release.log || true' EXIT
+          trap 'kill "$app_pid" 2>/dev/null || true; cat /tmp/node-release.log || true' EXIT
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3000/healthz >/dev/null; then
               break
