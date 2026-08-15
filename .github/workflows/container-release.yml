@@ -70,12 +70,34 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           trivyignores: ${{ inputs.trivyignores }}
+      # steps.build.outputs.digest (above) is NOT the digest of what
+      # actually lands in the registry: the build step above uses
+      # `push: false, load: true` (loads into the local Docker daemon
+      # only, for the Trivy scan step to read), and this "Push image"
+      # step re-uploads that locally-loaded image via a plain `docker
+      # push` afterward -- a separate operation that can (and, found for
+      # real 2026-08-15, first real ghcr.io/ute-workspace/
+      # semaphore-openssl consumer: does) produce a different manifest
+      # digest than buildx's own build-time digest. Using the wrong one
+      # here silently produced an image-ref no puller could ever
+      # resolve ("descriptor is neither a manifest or index" /
+      # "unexpected media type application/octet-stream" -- it pointed
+      # at the image's config blob, not its manifest). Capture the real,
+      # actually-pushed digest from `docker push`'s own output instead.
       - name: Push image
-        run: docker push --all-tags "ghcr.io/${{ inputs.image-name }}"
+        id: push
+        run: |
+          docker push --all-tags "ghcr.io/${{ inputs.image-name }}" | tee /tmp/docker-push-output.txt
+          digest="$(grep -oE 'sha256:[0-9a-f]{64}' /tmp/docker-push-output.txt | head -1)"
+          if [ -z "$digest" ]; then
+            echo "::error::could not parse a digest from docker push's own output" >&2
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - id: image
         shell: bash
         run: |
-          echo "ref=ghcr.io/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/${{ inputs.image-name }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_OUTPUT"
       # Best-effort: build provenance attestations require a feature this
       # org's current billing plan doesn't have for private repos
       # ("Feature not available for the ute-workspace organization" --
@@ -87,5 +109,5 @@ jobs:
         continue-on-error: true
         with:
           subject-name: ghcr.io/${{ inputs.image-name }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true

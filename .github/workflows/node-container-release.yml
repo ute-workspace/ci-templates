@@ -93,14 +93,29 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
 
+      # steps.build.outputs.digest (above) is NOT the digest of what
+      # actually lands in the registry -- see container-release.yml's
+      # own identical fix/comment (found for real 2026-08-15, first
+      # consumer to actually resolve a recorded image-ref by digest: it
+      # pointed at the image's config blob, not its manifest, and no
+      # puller could ever resolve it). Capture the real, actually-pushed
+      # digest from `docker push`'s own output instead.
       - name: Push image
-        run: docker push --all-tags "ghcr.io/${{ inputs.image-name }}"
+        id: push
+        run: |
+          docker push --all-tags "ghcr.io/${{ inputs.image-name }}" | tee /tmp/docker-push-output.txt
+          digest="$(grep -oE 'sha256:[0-9a-f]{64}' /tmp/docker-push-output.txt | head -1)"
+          if [ -z "$digest" ]; then
+            echo "::error::could not parse a digest from docker push's own output" >&2
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
       - id: image
         name: Record immutable image reference
         shell: bash
         run: |
-          echo "ref=ghcr.io/${{ inputs.image-name }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/${{ inputs.image-name }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_OUTPUT"
 
       # Best-effort: build provenance attestations require a feature this
       # org's current billing plan doesn't have for private repos --
@@ -115,5 +130,5 @@ jobs:
         continue-on-error: true
         with:
           subject-name: ghcr.io/${{ inputs.image-name }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
