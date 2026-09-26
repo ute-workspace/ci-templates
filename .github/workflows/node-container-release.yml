@@ -93,13 +93,13 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
 
-      # steps.build.outputs.digest (above) is NOT the digest of what
-      # actually lands in the registry -- see container-release.yml's
-      # own identical fix/comment (found for real 2026-08-15, first
-      # consumer to actually resolve a recorded image-ref by digest: it
-      # pointed at the image's config blob, not its manifest, and no
-      # puller could ever resolve it). Capture the real, actually-pushed
-      # digest from `docker push`'s own output instead.
+      # steps.build.outputs.digest (above) is not the digest of what
+      # actually lands in the registry: the build step above uses
+      # `push: false, load: true`, and this step re-uploads the image
+      # via a plain `docker push`, which can produce a different
+      # manifest digest than buildx's build-time digest (see
+      # container-release.yml). Capture the actually-pushed digest from
+      # `docker push`'s own output instead.
       - name: Push image
         id: push
         run: |
@@ -117,15 +117,11 @@ jobs:
         run: |
           echo "ref=ghcr.io/${{ inputs.image-name }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_OUTPUT"
 
-      # Best-effort: build provenance attestations require a feature this
-      # org's current billing plan doesn't have for private repos --
-      # confirmed for real via container-release.yml's own first release
-      # (jenkins, formerly ute-jenkins). Hasn't been observed here yet
-      # only because ute-demo-nodejs's own image publishes under a
-      # different GitHub org namespace; fixing proactively so any future
-      # ute-workspace-namespaced consumer of this workflow doesn't hit
-      # the same release-blocking failure. The image push above already
-      # succeeded by this point either way.
+      # Best-effort: some GitHub billing plans do not support build
+      # provenance attestations for private repositories, in which case
+      # this step fails after the image push above has already
+      # succeeded; continue-on-error keeps that failure from failing the
+      # whole release.
       - uses: actions/attest-build-provenance@v2
         continue-on-error: true
         with:
