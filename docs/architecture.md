@@ -30,7 +30,8 @@ for purpose and users.
   `docs/ci-cd.md`.
 - `docs/action-pinning.md` — third-party action pinning policy.
 - `docs/client-deployment.md` — deployment topology guidance for
-  consumers (Compose via self-hosted runner, or Kubernetes via GitOps).
+  consumers (Compose via self-hosted runner, or Kubernetes via GitOps) and
+  rules for development stacks on Compose or Portainer Git stacks.
 - `examples/*.yml` — example caller workflows showing how a consumer repo
   invokes each reusable workflow.
 
