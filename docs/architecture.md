@@ -28,6 +28,10 @@ for purpose and users.
   It never applies manifests to a cluster directly.
 - `.github/workflows/validate.yml` — this repository's own CI; see
   `docs/ci-cd.md`.
+- `scripts/check-copied-standards.sh` — canonical copied agent standards
+  check. Each reusable workflow embeds its body verbatim in a "Check for
+  copied agent standards" step; `tests/test_copied_standards.py` keeps the
+  copies identical.
 - `docs/action-pinning.md` — third-party action pinning policy.
 - `docs/client-deployment.md` — deployment topology guidance for
   consumers (Compose via self-hosted runner, or Kubernetes via GitOps).
@@ -36,8 +40,26 @@ for purpose and users.
 
 ## Data flow
 
+Copied agent standards check (all five reusable workflows): inspect the
+caller project for `.agents/core`, `.agent-standards.yml`, and every entry
+directly under `.claude/skills/` and `.agents/skills/`. Each finding is a
+`::warning` annotation naming the path and linking to agent-standards'
+`scripts/clean-project.py`, and is listed in the job summary. The check
+always exits 0 and its step has `continue-on-error: true`, so findings never
+fail the job (the GitHub Actions equivalent of Jenkins UNSTABLE). Detection
+uses only these fixed paths: nothing is read from agent-standards (no skill
+list, token, pinned commit, or checkout). A symlinked `.agents`, `.claude`,
+or skills directory, or a non-directory at a skills path, is reported as a
+finding itself and never followed. A missing caller checkout, or a caller
+checkout step whose outcome is not `success` (even if it left a directory
+behind), is a visible "not checked" warning and summary, not a clean result.
+Paths in the job summary are HTML-entity encoded so names cannot inject
+Markdown or links. Non-ASCII characters, including bidirectional
+formatting characters, are shown as-is, so a displayed name can differ
+visually from the real one; every such entry is still reported.
+
 Container release (`container-release.yml`, `node-container-release.yml`):
-checkout -> (Node install/lint/start/health-check/test, node variant only)
+checkout -> copied standards check -> (Node install/lint/start/health-check/test, node variant only)
 -> login to GHCR -> compute tags/labels (`docker/metadata-action`) -> build
 image locally (`push: false, load: true`) -> Trivy scan of the local image
 (fails the job on HIGH/CRITICAL findings, `trivyignores` narrows this on
@@ -46,12 +68,14 @@ digest from `docker push`'s own output -> emit `image-ref` as
 `ghcr.io/<image-name>@sha256:...` -> best-effort build-provenance
 attestation (`continue-on-error: true`).
 
-Ansible deploy: install a private SSH key from secrets -> checkout a
+Ansible deploy: sparse-checkout the caller project to `caller-project`
+-> copied standards check -> install a private SSH key from secrets -> checkout a
 pinned ref of the external Ansible repository -> install its pinned
 Ansible Galaxy collections -> run the named playbook against the given
 inventory path, passing GHCR and runtime-env secrets through as needed.
 
-GitOps promotion: checkout the external GitOps repository -> set the image
+GitOps promotion: sparse-checkout the caller project to `caller-project`
+-> copied standards check -> checkout the external GitOps repository -> set the image
 reference in a Kustomize overlay to the caller-supplied digest -> build the
 kustomization to validate it renders -> commit, push a promotion branch,
 and open a pull request in the GitOps repository for review.
@@ -84,6 +108,18 @@ own environment protection rules (e.g. required reviewers).
 
 ## Security model
 
+- The copied standards check reads only the caller checkout. In
+  `ansible-deploy.yml` and `gitops-image-promotion.yml` the caller project
+  is a separate sparse checkout (`path: caller-project`,
+  `persist-credentials: false`, default `github.token`, no `repository` or
+  `ref`), so the external Ansible/GitOps checkouts are never inspected and
+  no deployment credential is used. Its non-cone sparse patterns select
+  `.agent-standards.yml`, `.agents` and `.claude` themselves (so a
+  symlinked parent is checked out as a link), and below those parents only
+  `core` and `skills`; other caller files are excluded. The check's `run` script contains no
+  `${{ }}` expressions; the only expression is the
+  `CALLER_CHECKOUT_OUTCOME` env value (`steps.caller-checkout.outcome`).
+  Paths are escaped before being written to annotations and the summary.
 - `ansible-deploy.yml` requires `runner-label` to identify a dedicated
   deployment runner that is documented as never the application host
   itself.
@@ -117,6 +153,8 @@ results to the job log.
 
 ## Known limitations
 
+- The copied standards check is warning-only; failing enforcement is a
+  separate later change.
 - Build-provenance attestation is best-effort: it does not fail the job on
   error, so a consumer relying on attestations must check that step's
   outcome separately.
