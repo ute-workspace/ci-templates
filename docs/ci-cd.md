@@ -9,8 +9,8 @@ see `docs/product-overview.md` for what those workflows do and
 ## CI/CD model
 
 `validate.yml` runs on pull requests (opened, synchronize, reopened,
-ready_for_review) and on push to `main`. Its `yaml` job is skipped for
-draft pull requests.
+ready_for_review) and on push to `main`. Its `yaml` and `tests` jobs are
+skipped for draft pull requests.
 
 ## Pipeline owner
 
@@ -28,6 +28,13 @@ The `yaml` job parses every file under `.github/workflows/*.y*ml` with
 PyYAML (`yaml.safe_load`) to catch malformed YAML. It does not execute the
 workflows themselves or lint their semantics (no `actionlint`/`yamllint`
 step is configured).
+
+The `tests` job runs `python3 -m unittest discover -s tests -v`.
+`tests/test_copied_standards.py` covers the copied agent standards check
+(clean, individual, multiple, and both-skill-directory findings, a missing
+caller checkout, annotation escaping) and its integration in every reusable
+workflow: the embedded step matches `scripts/check-copied-standards.sh`,
+runs after a checkout of the caller project, and warns while succeeding.
 
 ## Deployment
 
@@ -69,5 +76,16 @@ for path in pathlib.Path('.github/workflows').glob('*.y*ml'):
 PY
 ```
 
-Run it from the repository root. No output means every workflow file
-parsed successfully.
+Then run the tests the `tests` job runs (needs Python 3 with PyYAML, and
+bash):
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Run both from the repository root. No output from the first means every
+workflow file parsed successfully.
+
+After changing `scripts/check-copied-standards.sh`, copy its body (without
+the leading `#` comment lines) into the "Check for copied agent standards"
+step of every reusable workflow; the tests fail until all copies match.

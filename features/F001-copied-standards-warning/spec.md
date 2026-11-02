@@ -1,8 +1,8 @@
-# F001 — Copied standards warning
-
-Status: draft
-Branch: feature/UND-24-copied-standards-warning
+Status: in-progress
+Branch: feature/UND-56-copied-standards-warning
 Repositories: ci-templates
+
+# F001 — Copied standards warning
 
 ## Goal
 
@@ -10,28 +10,28 @@ Warn consumers when their project contains copied agent standards so they can cl
 
 ## Scope
 
-- [EXISTS] `ute-workspace/agent-standards` commit `6d313db2e1099aa0d064e8558781b15259e61ad1` — source of current, vendor, and retired skill names.
-- [MODIFY] `.github/workflows/{node-ci,container-release,node-container-release,ansible-deploy,gitops-image-promotion}.yml` — run the shared check against the caller checkout in each reusable workflow.
-- [MODIFY] `.github/workflows/validate.yml` — run the new automated tests.
-- [NEW] Shared check and tests — read the pinned upstream checkout at runtime, identify copied paths, and report warnings.
-- [MODIFY] `docs/architecture.md` and `docs/ci-cd.md` — describe behavior, dependency, and validation.
+- [NEW] `scripts/check-copied-standards.sh` — canonical warning-only check of a project directory; reads nothing from agent-standards.
+- [MODIFY] `.github/workflows/{node-ci,container-release,node-container-release,ansible-deploy,gitops-image-promotion}.yml` — embed the check, run against the caller checkout in each reusable workflow.
+- [NEW] `tests/test_copied_standards.py` — behavior and workflow integration tests.
+- [MODIFY] `.github/workflows/validate.yml` — run the tests.
+- [MODIFY] `docs/architecture.md` and `docs/ci-cd.md` — behavior, checkout boundary, validation.
 
 ## Acceptance criteria
 
 - AC1: Each reusable workflow checks the caller repository, including deployment workflows that separately check out external repositories.
-  Verify: inspect all five workflow files and run the workflow integration tests → each invokes the shared check against a caller checkout.
-- AC2: `.agents/core/`, `.agent-standards.yml`, and matching skill directories under `.claude/skills/` or `.agents/skills/` are each reported by path; unrelated skills are ignored. Names come from pinned upstream `skills/`, `vendor-skills/`, and `RETIRED_SKILLS`.
-  Verify: run `python3 -m unittest discover -s tests -v` → clean, individual, combined, retired, and unrelated skill cases pass.
-- AC3: Findings provide a link to upstream `scripts/clean-project.py` and do not fail the build; a visible GitHub Actions warning communicates the condition.
-  Verify: run `python3 -m unittest discover -s tests -v` → findings yield successful warning-mode execution and expected annotation and link.
-- AC4: Missing or unreadable upstream source is visibly reported and does not masquerade as a clean check.
-  Verify: run `python3 -m unittest discover -s tests -v` → source-error case produces a visible warning.
+  Verify: run `python3 -m unittest discover -s tests -v` → `WorkflowIntegrationTest` passes for all five workflows (caller checkout precedes the check, no `repository`/`ref`/`token`, deployment checkouts not inspected).
+- AC2: `.agents/core/`, `.agent-standards.yml`, and every entry under `.claude/skills/` and `.agents/skills/` are each reported by path, without reading agent-standards (no list, token, pin, or checkout).
+  Verify: run `python3 -m unittest discover -s tests -v` → clean, individual, multiple, and both-skill-directory cases pass.
+- AC3: Findings link to upstream `scripts/clean-project.py`, emit warning annotations and a job summary, and do not fail the job.
+  Verify: run `python3 -m unittest discover -s tests -v` → findings exit 0 with expected annotations, summary, and link.
+- AC4: A missing caller checkout is reported as a visible warning, not as clean.
+  Verify: run `python3 -m unittest discover -s tests -v` → missing-checkout case passes.
 - AC5: Repository CI runs tests and YAML parsing remains valid.
-  Verify: run the documented local gates in `docs/ci-cd.md` → both pass.
+  Verify: run the local gates in `docs/ci-cd.md` → both pass.
 
 ## Deferred
 
-- Failing enforcement after repositories are cleaned, as requested for a separate change.
+- Failing enforcement after repositories are cleaned, as a separate change.
 
 ## Out of scope
 
@@ -39,9 +39,8 @@ Warn consumers when their project contains copied agent standards so they can cl
 
 ## Risks
 
-- GitHub Actions has no Jenkins UNSTABLE build result; use a successful job with warning annotations and a summary, subject to review of that platform mapping.
-- Fetching upstream adds a network dependency; report source failures visibly without blocking warning-mode pipelines.
-- Deployment workflows use protected or external checkouts; isolate caller checkout and do not inspect the deployment repository by mistake.
+- GitHub Actions has no Jenkins UNSTABLE result; a successful job with warning annotations and a job summary is the accepted equivalent (UND-24 plan).
+- Deployment workflows use external checkouts; the caller project is checked out separately to `caller-project` and only that path is inspected.
 
 ## Open questions
 
@@ -49,4 +48,5 @@ None.
 
 ## Decisions
 
-- Pin the complete upstream commit SHA and derive names from its actual source at runtime, without vendoring a list.
+- Detection uses only fixed paths in the caller project; no upstream source is fetched (UND-24 plan supersedes the earlier pinned-upstream draft).
+- The check body is embedded in each workflow rather than fetched from this repository at run time, so no extra checkout, ref, or token is needed; a test keeps every copy identical to `scripts/check-copied-standards.sh`.

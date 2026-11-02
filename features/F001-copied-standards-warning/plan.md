@@ -10,22 +10,23 @@
 
 ## Checklist
 
-- [ ] Obtain review of this feature folder before implementation.
-- [ ] Add failing tests for clean, core, marker file, current/vendor/retired skill, unrelated skill, combined findings, source failure, and all workflow integrations.
-- [ ] Implement the shared warning check and pin the upstream source; ensure no copied skill list is maintained here.
-- [ ] Integrate the check into each reusable workflow against the caller checkout and enable tests in repository CI.
-- [ ] Update architecture and CI documentation with warning semantics, source and local gates.
-- [ ] Run tests and local gates, perform DevOps review, change audit, docs sync, and release-readiness checks.
+- [x] Plan approved (UND-24 plan document).
+- [x] Shared warning check `scripts/check-copied-standards.sh` (fixed paths only).
+- [x] Tests for clean, individual, multiple, both-skill-directory, missing-checkout cases and all five workflow integrations.
+- [x] Embed the check in each reusable workflow against the caller checkout; run tests in `validate.yml`.
+- [x] Update `docs/architecture.md` and `docs/ci-cd.md`.
+- [ ] Independent Reviewer and Security reviews of the draft PR.
+- [ ] Change audit, then mark the PR ready.
 
 ## Gates
 
-Run the existing YAML parsing gate in `docs/ci-cd.md` and the new unit test command once added.
+`python3 -m unittest discover -s tests -v` and the YAML parsing snippet in `docs/ci-cd.md`.
 
 ## Docs impact
 
-- `docs/architecture.md` — checkout boundaries and pinned upstream source.
-- `docs/ci-cd.md` — warning semantics and test commands.
+- `docs/architecture.md` — check, caller checkout boundary, warning semantics.
+- `docs/ci-cd.md` — tests job and local gates.
 
 ## Next step
 
-Obtain feature-plan review and approval.
+Independent Reviewer and Security reviews of the draft PR.
