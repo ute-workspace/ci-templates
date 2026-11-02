@@ -17,7 +17,9 @@
 - [x] Update `docs/architecture.md` and `docs/ci-cd.md`.
 - [x] Independent Reviewer and Security reviews of the draft PR (UND-57, UND-58).
 - [x] Review fixes: checkout outcome, summary escaping, symlink and non-directory skills paths (UND-66).
-- [ ] Re-review of the review fixes.
+- [x] Re-reviews (UND-67, UND-68).
+- [x] Review fixes: sparse checkout of symlinked parents, skill-name skip, display disposition (UND-72).
+- [ ] Re-review of the UND-72 fixes.
 - [ ] Change audit, then mark the PR ready.
 
 ## Gates
@@ -31,4 +33,4 @@
 
 ## Next step
 
-Re-review of the review fixes, then change audit.
+Re-review of the UND-72 fixes, then change audit.

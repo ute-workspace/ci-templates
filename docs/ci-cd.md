@@ -35,6 +35,11 @@ The `tests` job runs `python3 -m unittest discover -s tests -v`.
 caller checkout, annotation escaping) and its integration in every reusable
 workflow: the embedded step matches `scripts/check-copied-standards.sh`,
 runs after a checkout of the caller project, and warns while succeeding.
+For the two deployment workflows it also makes a real non-cone sparse
+checkout of a fixture Git repository with the workflow's own patterns, then
+runs the embedded step, so symlinked `.agents`/`.claude` parents are proven
+to reach the check and unrelated caller files are proven not to be checked
+out. These tests need `git`.
 
 ## Deployment
 

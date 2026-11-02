@@ -26,8 +26,8 @@ Warn consumers when their project contains copied agent standards so they can cl
   Verify: run `python3 -m unittest discover -s tests -v` → findings exit 0 with expected annotations, summary, and link.
 - AC4: A missing caller checkout, or a failed caller checkout that leaves a directory behind, is reported as a visible "not checked" warning, not as clean.
   Verify: run `python3 -m unittest discover -s tests -v` → missing-checkout and failed-checkout cases pass.
-- AC6: Summary paths cannot inject Markdown; symlinked `.agents`/`.claude`/skills paths and non-directory skills paths are reported, not followed.
-  Verify: run `python3 -m unittest discover -s tests -v` → summary-escaping and symlink cases pass.
+- AC6: Summary paths cannot inject Markdown; symlinked `.agents`/`.claude`/skills paths and non-directory skills paths are reported, not followed, in every reusable workflow including the sparse deployment checkouts; no project name can hide another finding.
+  Verify: run `python3 -m unittest discover -s tests -v` → summary-escaping, symlink, skill-name and `SparseCheckoutIntegrationTest` cases pass (real sparse checkout for `ansible-deploy.yml` and `gitops-image-promotion.yml`).
 - AC5: Repository CI runs tests and YAML parsing remains valid.
   Verify: run the local gates in `docs/ci-cd.md` → both pass.
 
@@ -51,7 +51,10 @@ None.
 ## Decisions
 
 - Deployment workflows pass the caller checkout step's `outcome` to the check; anything but `success` is "not checked" (UND-57 review).
-- Review dispositions (UND-57, UND-58): summary escaping, failed checkout, symlinks and a regular file named `skills` are fixed; actions pinned by tag and inputs interpolated into run scripts are pre-existing and out of scope. A symlinked `.agents`/`.claude` in a deployment workflow is outside the sparse-checkout patterns and so is not seen there; it is reported by the full checkouts in the other workflows.
-
+- Review dispositions (UND-57, UND-58): summary escaping, failed checkout, symlinks and a regular file named `skills` are fixed; actions pinned by tag and inputs interpolated into run scripts are pre-existing and out of scope.
+- Review dispositions (UND-67, UND-68):
+  - Symlinked `.agents`/`.claude` omitted by the deployment sparse checkout → fixed. Patterns add `/.agents` and `/.claude`, exclude their other children (`!/.agents/*`, `!/.claude/*`), and re-include only `core`/`skills`, so the parent link is checked out but unrelated caller files such as `.claude/settings.json` are not.
+  - A skill named e.g. `x .agents y` hid `.agents/skills` → fixed. Skipping now matches only the fixed parent names recorded as symlinks, never names found in the project.
+  - Bidi/control Unicode shown unchanged in summary and annotations → accepted, not changed. Names come from the caller repository, whose writers already control its CI; detection, finding count and the cleanup script (which acts on real paths) are unaffected, and ASCII controls are already entity-encoded in the summary. Faithful bidi neutralisation needs locale-aware decoding that the warning-only check does not justify; a regression test proves such names are still each reported and hide nothing.
 - Detection uses only fixed paths in the caller project; no upstream source is fetched (UND-24 plan supersedes the earlier pinned-upstream draft).
 - The check body is embedded in each workflow rather than fetched from this repository at run time, so no extra checkout, ref, or token is needed; a test keeps every copy identical to `scripts/check-copied-standards.sh`.

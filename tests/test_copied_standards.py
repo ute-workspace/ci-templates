@@ -30,6 +30,12 @@ def script_body():
     return "".join(lines)
 
 
+def workflow_steps(name):
+    workflow = yaml.safe_load((WORKFLOWS / name).read_text())
+    (job,) = workflow["jobs"].values()
+    return job["steps"]
+
+
 def run_check(body, cwd, env=None):
     summary = pathlib.Path(cwd) / "summary.md"
     full_env = {"PATH": os.environ["PATH"], "GITHUB_STEP_SUMMARY": str(summary), **(env or {})}
@@ -224,6 +230,29 @@ class CheckBehaviourTest(unittest.TestCase):
         result, summary = self.assert_findings([".agents", ".claude"])
         self.assertNotIn("outside-name", result.stdout + summary)
 
+    def test_skill_name_cannot_hide_other_findings(self):
+        # A name containing " .agents " must not be taken for a symlinked parent.
+        make(self.root, ".claude/skills/x .agents y/", ".agents/skills/hidden/")
+        result, summary = self.check()
+        found = warnings(result.stdout)
+        self.assertEqual(len(found), 2, result.stdout)
+        self.assertIn(".agents/skills/hidden", found[1])
+        self.assertIn("- <code>.agents/skills/hidden</code>", summary)
+
+    def test_bidi_and_control_names_are_still_reported(self):
+        # Display disposition: such names are shown as-is (summary ASCII
+        # punctuation and controls are entity-encoded), but each is reported
+        # and none hides another finding.
+        names = ["a\u202eexe.dm", "b\u2066c\u2069", "c\x1bd\te"]
+        make(self.root, *[f".claude/skills/{n}/" for n in names], ".agents/skills/z/")
+        result, summary = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        found = warnings(result.stdout)
+        self.assertEqual(len(found), 4, result.stdout)
+        self.assertIn(".agents/skills/z", found[-1])
+        self.assertEqual(len([l for l in summary.splitlines() if l.startswith("- ")]), 4)
+        self.assertIn("c&#27;d&#9;e", summary)
+
     def test_check_reads_nothing_from_upstream(self):
         body = script_body()
         for forbidden in ("git ", "curl", "wget", "TOKEN", "token", "http://"):
@@ -233,9 +262,7 @@ class CheckBehaviourTest(unittest.TestCase):
 
 class WorkflowIntegrationTest(unittest.TestCase):
     def steps(self, name):
-        workflow = yaml.safe_load((WORKFLOWS / name).read_text())
-        (job,) = workflow["jobs"].values()
-        return job["steps"]
+        return workflow_steps(name)
 
     def test_every_reusable_workflow_is_covered(self):
         reusable = {p.name for p in WORKFLOWS.glob("*.y*ml")
@@ -308,6 +335,114 @@ class WorkflowIntegrationTest(unittest.TestCase):
                 self.assertIn("not checked", found[0])
                 self.assertIn("Not checked", summary)
                 self.assertNotIn("None found", summary)
+
+
+def sparse_patterns(name):
+    steps = workflow_steps(name)
+    (checkout,) = [s for s in steps if s.get("id") == "caller-checkout"]
+    with_ = checkout["with"]
+    assert with_["sparse-checkout-cone-mode"] is False
+    return with_["sparse-checkout"].splitlines()
+
+
+def git(*args, cwd):
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+                   cwd=cwd, check=True, capture_output=True)
+
+
+def sparse_clone(source, dest, patterns):
+    """Non-cone sparse checkout as actions/checkout@v4 applies it."""
+    git("clone", "--quiet", "--no-checkout", str(source), str(dest), cwd=source)
+    git("config", "core.sparseCheckout", "true", cwd=dest)
+    info = pathlib.Path(dest) / ".git" / "info"
+    info.mkdir(exist_ok=True)
+    with open(info / "sparse-checkout", "a") as f:
+        f.write("\n" + "\n".join(patterns) + "\n")
+    git("checkout", "--quiet", cwd=dest)
+
+
+@unittest.skipUnless(shutil.which("git"), "git is required")
+class SparseCheckoutIntegrationTest(unittest.TestCase):
+    """Deployment workflows: real sparse checkout of a caller repo, then the embedded step."""
+
+    def run_deployment(self, name, build):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp) / "source"
+            source.mkdir()
+            git("init", "--quiet", cwd=source)
+            build(source)
+            git("add", "-A", cwd=source)
+            git("commit", "--quiet", "-m", "fixture", cwd=source)
+            workspace = pathlib.Path(tmp) / "workspace"
+            workspace.mkdir()
+            root = REUSABLE[name]
+            sparse_clone(source, workspace / root, sparse_patterns(name))
+            (step,) = [s for s in workflow_steps(name)
+                       if s.get("name") == STEP_NAME]
+            result, summary = run_check(step["run"], workspace, step_env(step))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            checked_out = sorted(str(p.relative_to(workspace / root))
+                                 for p in (workspace / root).rglob("*")
+                                 if ".git" not in p.relative_to(workspace / root).parts)
+            return warnings(result.stdout), summary, checked_out
+
+    def deployments(self):
+        return [name for name, root in REUSABLE.items() if root != "."]
+
+    def test_symlinked_parents_are_checked_out_and_reported(self):
+        def build(src):
+            os.symlink("elsewhere", src / ".agents")
+            os.symlink("/etc", src / ".claude")
+            make(src, "src/index.js")
+        for name in self.deployments():
+            with self.subTest(workflow=name):
+                found, summary, checked_out = self.run_deployment(name, build)
+                self.assertEqual(len(found), 2, found)
+                self.assertTrue(found[0].startswith(
+                    "::warning title=Copied agent standards::.agents "), found)
+                self.assertTrue(found[1].startswith(
+                    "::warning title=Copied agent standards::.claude "), found)
+                self.assertNotIn("None found", summary)
+                self.assertEqual(checked_out, [".agents", ".claude"])
+
+    def test_standards_are_reported_and_unrelated_files_are_not_checked_out(self):
+        def build(src):
+            make(src, ".agents/core/x.md", ".agent-standards.yml",
+                 ".claude/skills/x .agents y/SKILL.md", ".agents/skills/hidden/SKILL.md",
+                 ".agents/README.md", ".claude/settings.json", ".claude/other/x", "src/index.js")
+        for name in self.deployments():
+            with self.subTest(workflow=name):
+                found, _, checked_out = self.run_deployment(name, build)
+                self.assertEqual(len(found), 4, found)
+                for line, path in zip(found, [".agents/core", ".agent-standards.yml",
+                                              ".claude/skills/x .agents y",
+                                              ".agents/skills/hidden"]):
+                    self.assertTrue(line.startswith(
+                        f"::warning title=Copied agent standards::{path} "), line)
+                for unrelated in (".agents/README.md", ".claude/settings.json",
+                                  ".claude/other", "src"):
+                    self.assertNotIn(unrelated, checked_out)
+
+    def test_symlinks_below_parents_are_checked_out_and_reported(self):
+        def build(src):
+            (src / ".agents").mkdir()
+            (src / ".claude").mkdir()
+            os.symlink("/etc", src / ".agents" / "core")
+            os.symlink("/etc", src / ".claude" / "skills")
+            os.symlink("elsewhere", src / ".agents" / "skills")
+        for name in self.deployments():
+            with self.subTest(workflow=name):
+                found, _, _ = self.run_deployment(name, build)
+                self.assertEqual(len(found), 3, found)
+
+    def test_clean_caller_is_reported_clean(self):
+        for name in self.deployments():
+            with self.subTest(workflow=name):
+                found, summary, checked_out = self.run_deployment(
+                    name, lambda src: make(src, "src/index.js", ".claude/settings.json"))
+                self.assertEqual(found, [])
+                self.assertIn("None found.", summary)
+                self.assertEqual(checked_out, [])
 
 
 if __name__ == "__main__":

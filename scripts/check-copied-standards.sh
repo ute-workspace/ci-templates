@@ -28,12 +28,14 @@ not_checked() {
 [ "$outcome" = success ] || not_checked "failed (checkout outcome: ${outcome:-unknown})"
 [ -d "$root" ] && [ ! -L "$root" ] || not_checked "not found"
 found=()
+linked=" "
 for parent in .agents .claude; do
   # A symlinked parent is reported itself; its target is not listed.
-  if [ -L "$root/$parent" ]; then found+=("$parent"); fi
+  if [ -L "$root/$parent" ]; then found+=("$parent"); linked+="$parent "; fi
 done
 for path in .agents/core .agent-standards.yml .claude/skills .agents/skills; do
-  case " ${found[*]} " in *" ${path%%/*} "*) continue ;; esac
+  # Only fixed parent names are matched, never names found in the project.
+  case "$linked" in *" ${path%%/*} "*) continue ;; esac
   if [ -L "$root/$path" ] || { [ -e "$root/$path" ] && [ ! -d "$root/$path" ]; }; then
     found+=("$path")
   elif [ -d "$root/$path" ]; then

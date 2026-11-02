@@ -54,7 +54,9 @@ finding itself and never followed. A missing caller checkout, or a caller
 checkout step whose outcome is not `success` (even if it left a directory
 behind), is a visible "not checked" warning and summary, not a clean result.
 Paths in the job summary are HTML-entity encoded so names cannot inject
-Markdown or links.
+Markdown or links. Non-ASCII characters, including bidirectional
+formatting characters, are shown as-is, so a displayed name can differ
+visually from the real one; every such entry is still reported.
 
 Container release (`container-release.yml`, `node-container-release.yml`):
 checkout -> copied standards check -> (Node install/lint/start/health-check/test, node variant only)
@@ -111,7 +113,10 @@ own environment protection rules (e.g. required reviewers).
   is a separate sparse checkout (`path: caller-project`,
   `persist-credentials: false`, default `github.token`, no `repository` or
   `ref`), so the external Ansible/GitOps checkouts are never inspected and
-  no deployment credential is used. The check's `run` script contains no
+  no deployment credential is used. Its non-cone sparse patterns select
+  `.agent-standards.yml`, `.agents` and `.claude` themselves (so a
+  symlinked parent is checked out as a link), and below those parents only
+  `core` and `skills`; other caller files are excluded. The check's `run` script contains no
   `${{ }}` expressions; the only expression is the
   `CALLER_CHECKOUT_OUTCOME` env value (`steps.caller-checkout.outcome`).
   Paths are escaped before being written to annotations and the summary.
