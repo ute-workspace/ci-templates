@@ -2,11 +2,10 @@
 
 ## Applicable standards
 
-- `.agents/core/standards/ci-cd.md` — shared pipeline ownership and validation.
-- `.agents/core/standards/testing.md` — behavior and regression coverage.
-- `.agents/core/standards/security.md` — external checkout and permissions.
-- `.agents/core/standards/documentation.md` — consumer-facing behavior.
-- `.agents/core/archetypes/devops-infra/` — pipeline review.
+- agent-standards `test-strategy` — behavior and regression coverage.
+- agent-standards `security-review` — external checkout and permissions.
+- agent-standards `docs-sync` — consumer-facing behavior.
+- agent-standards `devops-review` — shared pipeline ownership, validation and review.
 
 ## Checklist
 
