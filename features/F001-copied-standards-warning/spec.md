@@ -24,8 +24,10 @@ Warn consumers when their project contains copied agent standards so they can cl
   Verify: run `python3 -m unittest discover -s tests -v` → clean, individual, multiple, and both-skill-directory cases pass.
 - AC3: Findings link to upstream `scripts/clean-project.py`, emit warning annotations and a job summary, and do not fail the job.
   Verify: run `python3 -m unittest discover -s tests -v` → findings exit 0 with expected annotations, summary, and link.
-- AC4: A missing caller checkout is reported as a visible warning, not as clean.
-  Verify: run `python3 -m unittest discover -s tests -v` → missing-checkout case passes.
+- AC4: A missing caller checkout, or a failed caller checkout that leaves a directory behind, is reported as a visible "not checked" warning, not as clean.
+  Verify: run `python3 -m unittest discover -s tests -v` → missing-checkout and failed-checkout cases pass.
+- AC6: Summary paths cannot inject Markdown; symlinked `.agents`/`.claude`/skills paths and non-directory skills paths are reported, not followed.
+  Verify: run `python3 -m unittest discover -s tests -v` → summary-escaping and symlink cases pass.
 - AC5: Repository CI runs tests and YAML parsing remains valid.
   Verify: run the local gates in `docs/ci-cd.md` → both pass.
 
@@ -47,6 +49,9 @@ Warn consumers when their project contains copied agent standards so they can cl
 None.
 
 ## Decisions
+
+- Deployment workflows pass the caller checkout step's `outcome` to the check; anything but `success` is "not checked" (UND-57 review).
+- Review dispositions (UND-57, UND-58): summary escaping, failed checkout, symlinks and a regular file named `skills` are fixed; actions pinned by tag and inputs interpolated into run scripts are pre-existing and out of scope. A symlinked `.agents`/`.claude` in a deployment workflow is outside the sparse-checkout patterns and so is not seen there; it is reported by the full checkouts in the other workflows.
 
 - Detection uses only fixed paths in the caller project; no upstream source is fetched (UND-24 plan supersedes the earlier pinned-upstream draft).
 - The check body is embedded in each workflow rather than fetched from this repository at run time, so no extra checkout, ref, or token is needed; a test keeps every copy identical to `scripts/check-copied-standards.sh`.

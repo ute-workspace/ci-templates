@@ -1,6 +1,7 @@
 """Tests for the copied agent standards warning check and its workflow integration."""
 import os
 import pathlib
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -41,6 +42,14 @@ def run_check(body, cwd, env=None):
     return result, summary_text
 
 
+def step_env(step, outcome="success"):
+    """Step env with the caller checkout outcome expression resolved."""
+    env = dict(step.get("env") or {})
+    if "CALLER_CHECKOUT_OUTCOME" in env:
+        env["CALLER_CHECKOUT_OUTCOME"] = outcome
+    return env
+
+
 def warnings(stdout):
     return [line for line in stdout.splitlines() if line.startswith("::warning ")]
 
@@ -72,7 +81,7 @@ class CheckBehaviourTest(unittest.TestCase):
         for line, path in zip(found, expected):
             self.assertTrue(line.startswith(f"::warning title=Copied agent standards::{path} "), line)
             self.assertIn(CLEAN_URL, line)
-            self.assertIn(f"- `{path}`", summary)
+            self.assertIn(f"- <code>{path}</code>", summary)
         self.assertIn(CLEAN_URL, summary)
         self.assertIn("Warning only; the build is not failed.", summary)
         return result, summary
@@ -143,6 +152,78 @@ class CheckBehaviourTest(unittest.TestCase):
         self.assertIn("not checked", found[0])
         self.assertIn("Not checked", summary)
 
+    def test_failed_checkout_with_existing_directory_is_not_checked(self):
+        # A failed checkout can leave a partial or stale directory behind.
+        make(self.root, "caller-project/src/index.js")
+        for outcome in ("failure", "cancelled", "skipped", ""):
+            with self.subTest(outcome=outcome):
+                result, summary = self.check({"COPIED_STANDARDS_ROOT": "caller-project",
+                                              "CALLER_CHECKOUT_OUTCOME": outcome})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                found = warnings(result.stdout)
+                self.assertEqual(len(found), 1, result.stdout)
+                self.assertIn("failed", found[0])
+                self.assertIn("not checked", found[0])
+                self.assertIn("Not checked", summary)
+                self.assertNotIn("None found", summary)
+                self.assertNotIn("No copied agent standards found.", result.stdout)
+                (pathlib.Path(self.root) / "summary.md").unlink()
+
+    def test_failed_checkout_does_not_report_stale_findings(self):
+        make(self.root, "caller-project/.agent-standards.yml")
+        result, summary = self.check({"COPIED_STANDARDS_ROOT": "caller-project",
+                                      "CALLER_CHECKOUT_OUTCOME": "failure"})
+        found = warnings(result.stdout)
+        self.assertEqual(len(found), 1, result.stdout)
+        self.assertIn("not checked", found[0])
+        self.assertNotIn(".agent-standards.yml", summary)
+
+    def test_successful_checkout_outcome_is_inspected(self):
+        make(self.root, "caller-project/.agent-standards.yml")
+        result, _ = self.check({"COPIED_STANDARDS_ROOT": "caller-project",
+                                "CALLER_CHECKOUT_OUTCOME": "success"})
+        self.assertEqual(len(warnings(result.stdout)), 1, result.stdout)
+        self.assertIn(".agent-standards.yml", result.stdout)
+
+    def test_summary_names_cannot_inject_markdown(self):
+        name = "x` [spoof](https://evil.example) <a href=y>`"
+        make(self.root, f".claude/skills/{name}/")
+        result, summary = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(warnings(result.stdout)), 1, result.stdout)
+        entry = [line for line in summary.splitlines() if line.startswith("- ")]
+        self.assertEqual(len(entry), 1, summary)
+        for raw in ("`", "[", "]", "(", ")", "<a", ">`", "evil.example)"):
+            self.assertNotIn(raw, entry[0].removeprefix("- <code>").removesuffix("</code>"))
+        self.assertIn("&#91;spoof&#93;&#40;https", entry[0])
+
+    def test_summary_keeps_non_ascii_names(self):
+        make(self.root, ".claude/skills/café/")
+        _, summary = self.check()
+        self.assertIn("- <code>.claude/skills/café</code>", summary)
+
+    def test_regular_file_named_skills(self):
+        make(self.root, ".claude/skills", ".agents/skills")
+        self.assert_findings([".claude/skills", ".agents/skills"])
+
+    def test_symlinked_skills_directory_is_reported_not_followed(self):
+        outside = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, outside)
+        make(outside, "outside-name/SKILL.md")
+        os.makedirs(os.path.join(self.root, ".claude"))
+        os.symlink(outside, os.path.join(self.root, ".claude", "skills"))
+        result, summary = self.assert_findings([".claude/skills"])
+        self.assertNotIn("outside-name", result.stdout + summary)
+
+    def test_symlinked_parent_is_reported_not_followed(self):
+        outside = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, outside)
+        make(outside, "skills/outside-name/SKILL.md", "core/x.md")
+        os.symlink(outside, os.path.join(self.root, ".claude"))
+        os.symlink(outside, os.path.join(self.root, ".agents"))
+        result, summary = self.assert_findings([".agents", ".claude"])
+        self.assertNotIn("outside-name", result.stdout + summary)
+
     def test_check_reads_nothing_from_upstream(self):
         body = script_body()
         for forbidden in ("git ", "curl", "wget", "TOKEN", "token", "http://"):
@@ -175,11 +256,18 @@ class WorkflowIntegrationTest(unittest.TestCase):
                 steps = self.steps(name)
                 index = next(i for i, s in enumerate(steps) if s.get("name") == STEP_NAME)
                 check = steps[index]
-                self.assertEqual(check.get("env", {}).get("COPIED_STANDARDS_ROOT", "."), root)
+                env = check.get("env", {})
+                self.assertEqual(env.get("COPIED_STANDARDS_ROOT", "."), root)
                 checkouts = [s for s in steps[:index]
                              if str(s.get("uses", "")).startswith("actions/checkout@")]
                 self.assertTrue(checkouts, "caller checkout must precede the check")
                 caller = checkouts[-1].get("with") or {}
+                if checkouts[-1].get("continue-on-error"):
+                    # The check must see a failed checkout, not just the directory it leaves.
+                    self.assertEqual(env.get("CALLER_CHECKOUT_OUTCOME"),
+                                     f"${{{{ steps.{checkouts[-1]['id']}.outcome }}}}")
+                else:
+                    self.assertNotIn("CALLER_CHECKOUT_OUTCOME", env)
                 self.assertNotIn("repository", caller)
                 self.assertNotIn("token", caller)
                 self.assertNotIn("ref", caller)
@@ -198,13 +286,28 @@ class WorkflowIntegrationTest(unittest.TestCase):
                      ".claude/skills/x/SKILL.md")
                 # Deployment checkouts beside the caller project are not inspected.
                 make(workspace, "gitops/.agent-standards.yml", "ansible/.agents/core/x.md")
-                result, summary = run_check(step["run"], workspace, step.get("env"))
+                result, summary = run_check(step["run"], workspace, step_env(step))
                 self.assertEqual(result.returncode, 0, result.stderr)
                 found = warnings(result.stdout)
                 self.assertEqual(len(found), 2, result.stdout)
                 self.assertIn(".agent-standards.yml", found[0])
                 self.assertIn(".claude/skills/x", found[1])
                 self.assertIn(CLEAN_URL, summary)
+
+    def test_embedded_step_reports_failed_caller_checkout(self):
+        for name, root in REUSABLE.items():
+            if root == ".":
+                continue
+            with self.subTest(workflow=name), tempfile.TemporaryDirectory() as workspace:
+                (step,) = [s for s in self.steps(name) if s.get("name") == STEP_NAME]
+                make(os.path.join(workspace, root), "src/index.js")
+                result, summary = run_check(step["run"], workspace, step_env(step, "failure"))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                found = warnings(result.stdout)
+                self.assertEqual(len(found), 1, result.stdout)
+                self.assertIn("not checked", found[0])
+                self.assertIn("Not checked", summary)
+                self.assertNotIn("None found", summary)
 
 
 if __name__ == "__main__":

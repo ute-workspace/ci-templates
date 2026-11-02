@@ -15,7 +15,9 @@
 - [x] Tests for clean, individual, multiple, both-skill-directory, missing-checkout cases and all five workflow integrations.
 - [x] Embed the check in each reusable workflow against the caller checkout; run tests in `validate.yml`.
 - [x] Update `docs/architecture.md` and `docs/ci-cd.md`.
-- [ ] Independent Reviewer and Security reviews of the draft PR.
+- [x] Independent Reviewer and Security reviews of the draft PR (UND-57, UND-58).
+- [x] Review fixes: checkout outcome, summary escaping, symlink and non-directory skills paths (UND-66).
+- [ ] Re-review of the review fixes.
 - [ ] Change audit, then mark the PR ready.
 
 ## Gates
@@ -29,4 +31,4 @@
 
 ## Next step
 
-Independent Reviewer and Security reviews of the draft PR.
+Re-review of the review fixes, then change audit.

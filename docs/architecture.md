@@ -48,8 +48,13 @@ directly under `.claude/skills/` and `.agents/skills/`. Each finding is a
 always exits 0 and its step has `continue-on-error: true`, so findings never
 fail the job (the GitHub Actions equivalent of Jenkins UNSTABLE). Detection
 uses only these fixed paths: nothing is read from agent-standards (no skill
-list, token, pinned commit, or checkout). A missing caller checkout is a
-visible warning, not a clean result.
+list, token, pinned commit, or checkout). A symlinked `.agents`, `.claude`,
+or skills directory, or a non-directory at a skills path, is reported as a
+finding itself and never followed. A missing caller checkout, or a caller
+checkout step whose outcome is not `success` (even if it left a directory
+behind), is a visible "not checked" warning and summary, not a clean result.
+Paths in the job summary are HTML-entity encoded so names cannot inject
+Markdown or links.
 
 Container release (`container-release.yml`, `node-container-release.yml`):
 checkout -> copied standards check -> (Node install/lint/start/health-check/test, node variant only)
@@ -106,8 +111,10 @@ own environment protection rules (e.g. required reviewers).
   is a separate sparse checkout (`path: caller-project`,
   `persist-credentials: false`, default `github.token`, no `repository` or
   `ref`), so the external Ansible/GitOps checkouts are never inspected and
-  no deployment credential is used. The step contains no `${{ }}`
-  expressions; paths are escaped before being written to annotations.
+  no deployment credential is used. The check's `run` script contains no
+  `${{ }}` expressions; the only expression is the
+  `CALLER_CHECKOUT_OUTCOME` env value (`steps.caller-checkout.outcome`).
+  Paths are escaped before being written to annotations and the summary.
 - `ansible-deploy.yml` requires `runner-label` to identify a dedicated
   deployment runner that is documented as never the application host
   itself.
