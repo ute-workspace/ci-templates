@@ -1,4 +1,4 @@
-Status: in-progress
+Status: done
 Branch: feat/NO-TICKET-copied-standards-fail
 Repositories: ci-templates
 
