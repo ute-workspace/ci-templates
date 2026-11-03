@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Warning-only check for copied agent standards in the caller project.
+# Check for copied agent standards in the caller project.
 # Every reusable workflow embeds this exact body (after this header) in its
 # "Check for copied agent standards" step; tests/test_copied_standards.py
-# keeps the copies identical. Always exits 0.
+# keeps the copies identical. Exits 1 with an error annotation per finding;
+# exits 0 when nothing is found or the project checkout cannot be checked.
 root="${COPIED_STANDARDS_ROOT:-.}"
 outcome="${CALLER_CHECKOUT_OUTCOME-success}"
 clean_url="https://github.com/ute-workspace/agent-standards/blob/main/scripts/clean-project.py"
@@ -55,9 +56,10 @@ if [ "${#found[@]}" -eq 0 ]; then
 fi
 {
   printf '## Copied agent standards\n\n'
-  printf 'Warning only; the build is not failed. Remove these paths with [scripts/clean-project.py](%s):\n\n' "$clean_url"
+  printf 'The build fails until these paths are removed with [scripts/clean-project.py](%s):\n\n' "$clean_url"
 } >> "$summary"
 for path in "${found[@]}"; do
-  echo "::warning title=Copied agent standards::$(escape "$path") is a copy of agent standards; remove it with $clean_url"
+  echo "::error title=Copied agent standards::$(escape "$path") is a copy of agent standards; remove it with $clean_url"
   printf -- '- <code>%s</code>\n' "$(md "$path")" >> "$summary"
 done
+exit 1

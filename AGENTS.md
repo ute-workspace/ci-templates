@@ -54,7 +54,8 @@ python3 -m unittest discover -s tests -v
 - After changing `scripts/check-copied-standards.sh`, copy its body (without
   the leading `#` comment lines) into the "Check for copied agent standards"
   step of every reusable workflow; the tests fail until all copies match.
-  The check stays warning-only; the `.agents/core`, `.agent-standards.yml`,
+  Findings fail the job; a caller checkout that cannot be inspected only
+  warns. The `.agents/core`, `.agent-standards.yml`,
   `.claude/skills` and `.agents/skills` paths it names are what it detects
   in caller projects.
 - Changes to `validate.yml` are documented in `docs/ci-cd.md`.

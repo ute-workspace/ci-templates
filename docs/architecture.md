@@ -42,17 +42,20 @@ for purpose and users.
 
 Copied agent standards check (all five reusable workflows): inspect the
 caller project for `.agents/core`, `.agent-standards.yml`, and every entry
-directly under `.claude/skills/` and `.agents/skills/`. Each finding is a
-`::warning` annotation naming the path and linking to agent-standards'
-`scripts/clean-project.py`, and is listed in the job summary. The check
-always exits 0 and its step has `continue-on-error: true`, so findings never
-fail the job (the GitHub Actions equivalent of Jenkins UNSTABLE). Detection
-uses only these fixed paths: nothing is read from agent-standards (no skill
-list, token, pinned commit, or checkout). A symlinked `.agents`, `.claude`,
+directly under `.claude/skills/` and `.agents/skills/`. Each finding is an
+`::error` annotation naming the path and linking to agent-standards'
+`scripts/clean-project.py`, and is listed in the job summary. Any finding
+makes the check exit 1, which fails the step and the job; the check runs
+before every build, push, deploy or promotion step, so none of them runs.
+Detection uses only these fixed paths: nothing is read from agent-standards
+(no skill list, token, pinned commit, or checkout). A symlinked `.agents`, `.claude`,
 or skills directory, or a non-directory at a skills path, is reported as a
 finding itself and never followed. A missing caller checkout, or a caller
 checkout step whose outcome is not `success` (even if it left a directory
-behind), is a visible "not checked" warning and summary, not a clean result.
+behind), is a visible "not checked" `::warning` and summary, not a clean
+result, and does not fail the job (exit 0). An entry the check cannot list,
+such as one under an unreadable skills directory, is not a finding and does
+not fail the job either.
 Paths in the job summary are HTML-entity encoded so names cannot inject
 Markdown or links. Non-ASCII characters, including bidirectional
 formatting characters, are shown as-is, so a displayed name can differ
@@ -153,8 +156,9 @@ results to the job log.
 
 ## Known limitations
 
-- The copied standards check is warning-only; failing enforcement is a
-  separate later change.
+- The copied standards check does not fail the job when it cannot inspect
+  the caller project (missing or failed caller checkout, unreadable skills
+  directory); it only warns.
 - Build-provenance attestation is best-effort: it does not fail the job on
   error, so a consumer relying on attestations must check that step's
   outcome separately.
