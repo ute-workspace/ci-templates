@@ -1,4 +1,4 @@
-"""Tests for the copied agent standards warning check and its workflow integration."""
+"""Tests for the copied agent standards check and its workflow integration."""
 import os
 import pathlib
 import shutil
@@ -60,6 +60,10 @@ def warnings(stdout):
     return [line for line in stdout.splitlines() if line.startswith("::warning ")]
 
 
+def errors(stdout):
+    return [line for line in stdout.splitlines() if line.startswith("::error ")]
+
+
 def make(root, *paths):
     for rel in paths:
         target = pathlib.Path(root) / rel
@@ -81,22 +85,24 @@ class CheckBehaviourTest(unittest.TestCase):
 
     def assert_findings(self, expected):
         result, summary = self.check()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        found = warnings(result.stdout)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(warnings(result.stdout), [])
+        found = errors(result.stdout)
         self.assertEqual(len(found), len(expected), result.stdout)
         for line, path in zip(found, expected):
-            self.assertTrue(line.startswith(f"::warning title=Copied agent standards::{path} "), line)
+            self.assertTrue(line.startswith(f"::error title=Copied agent standards::{path} "), line)
             self.assertIn(CLEAN_URL, line)
             self.assertIn(f"- <code>{path}</code>", summary)
         self.assertIn(CLEAN_URL, summary)
-        self.assertIn("Warning only; the build is not failed.", summary)
+        self.assertIn("The build fails until these paths are removed", summary)
         return result, summary
 
-    def test_clean_project_has_no_warnings(self):
+    def test_clean_project_passes(self):
         make(self.root, "src/index.js", ".claude/settings.json", ".agents/README.md")
         result, summary = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(warnings(result.stdout), [])
+        self.assertEqual(errors(result.stdout), [])
         self.assertIn("No copied agent standards found.", result.stdout)
         self.assertIn("None found.", summary)
 
@@ -140,19 +146,32 @@ class CheckBehaviourTest(unittest.TestCase):
     def test_empty_skill_directories_are_clean(self):
         make(self.root, ".claude/skills/", ".agents/skills/")
         result, _ = self.check()
-        self.assertEqual(warnings(result.stdout), [])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(errors(result.stdout), [])
+
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root can read any directory")
+    def test_unreadable_skill_directory_does_not_fail(self):
+        # Entries that cannot be listed are not findings.
+        make(self.root, ".claude/skills/x/SKILL.md")
+        skills = os.path.join(self.root, ".claude", "skills")
+        os.chmod(skills, 0)
+        self.addCleanup(os.chmod, skills, 0o755)
+        result, _ = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(errors(result.stdout), [])
 
     def test_annotation_data_is_escaped(self):
         make(self.root, ".claude/skills/bad%0Aname\nnext/")
         result, _ = self.check()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        found = warnings(result.stdout)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        found = errors(result.stdout)
         self.assertEqual(len(found), 1, result.stdout)
         self.assertIn("bad%250Aname%0Anext", found[0])
 
     def test_missing_project_checkout_is_a_visible_warning(self):
         result, summary = self.check({"COPIED_STANDARDS_ROOT": "caller-project"})
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(errors(result.stdout), [])
         found = warnings(result.stdout)
         self.assertEqual(len(found), 1, result.stdout)
         self.assertIn("not checked", found[0])
@@ -166,6 +185,7 @@ class CheckBehaviourTest(unittest.TestCase):
                 result, summary = self.check({"COPIED_STANDARDS_ROOT": "caller-project",
                                               "CALLER_CHECKOUT_OUTCOME": outcome})
                 self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(errors(result.stdout), [])
                 found = warnings(result.stdout)
                 self.assertEqual(len(found), 1, result.stdout)
                 self.assertIn("failed", found[0])
@@ -179,6 +199,8 @@ class CheckBehaviourTest(unittest.TestCase):
         make(self.root, "caller-project/.agent-standards.yml")
         result, summary = self.check({"COPIED_STANDARDS_ROOT": "caller-project",
                                       "CALLER_CHECKOUT_OUTCOME": "failure"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(errors(result.stdout), [])
         found = warnings(result.stdout)
         self.assertEqual(len(found), 1, result.stdout)
         self.assertIn("not checked", found[0])
@@ -188,15 +210,16 @@ class CheckBehaviourTest(unittest.TestCase):
         make(self.root, "caller-project/.agent-standards.yml")
         result, _ = self.check({"COPIED_STANDARDS_ROOT": "caller-project",
                                 "CALLER_CHECKOUT_OUTCOME": "success"})
-        self.assertEqual(len(warnings(result.stdout)), 1, result.stdout)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(errors(result.stdout)), 1, result.stdout)
         self.assertIn(".agent-standards.yml", result.stdout)
 
     def test_summary_names_cannot_inject_markdown(self):
         name = "x` [spoof](https://evil.example) <a href=y>`"
         make(self.root, f".claude/skills/{name}/")
         result, summary = self.check()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(len(warnings(result.stdout)), 1, result.stdout)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(len(errors(result.stdout)), 1, result.stdout)
         entry = [line for line in summary.splitlines() if line.startswith("- ")]
         self.assertEqual(len(entry), 1, summary)
         for raw in ("`", "[", "]", "(", ")", "<a", ">`", "evil.example)"):
@@ -234,7 +257,7 @@ class CheckBehaviourTest(unittest.TestCase):
         # A name containing " .agents " must not be taken for a symlinked parent.
         make(self.root, ".claude/skills/x .agents y/", ".agents/skills/hidden/")
         result, summary = self.check()
-        found = warnings(result.stdout)
+        found = errors(result.stdout)
         self.assertEqual(len(found), 2, result.stdout)
         self.assertIn(".agents/skills/hidden", found[1])
         self.assertIn("- <code>.agents/skills/hidden</code>", summary)
@@ -246,8 +269,8 @@ class CheckBehaviourTest(unittest.TestCase):
         names = ["a\u202eexe.dm", "b\u2066c\u2069", "c\x1bd\te"]
         make(self.root, *[f".claude/skills/{n}/" for n in names], ".agents/skills/z/")
         result, summary = self.check()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        found = warnings(result.stdout)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        found = errors(result.stdout)
         self.assertEqual(len(found), 4, result.stdout)
         self.assertIn(".agents/skills/z", found[-1])
         self.assertEqual(len([l for l in summary.splitlines() if l.startswith("- ")]), 4)
@@ -275,7 +298,7 @@ class WorkflowIntegrationTest(unittest.TestCase):
                 (step,) = [s for s in self.steps(name) if s.get("name") == STEP_NAME]
                 self.assertEqual(step["run"], script_body())
                 self.assertEqual(step.get("shell"), "bash")
-                self.assertIs(step.get("continue-on-error"), True)
+                self.assertNotIn("continue-on-error", step)
 
     def test_check_inspects_caller_checkout(self):
         for name, root in REUSABLE.items():
@@ -305,7 +328,7 @@ class WorkflowIntegrationTest(unittest.TestCase):
                                    if s is not checkouts[-1]]
                     self.assertNotIn(root, other_paths)
 
-    def test_embedded_step_warns_and_succeeds(self):
+    def test_embedded_step_fails_on_findings(self):
         for name, root in REUSABLE.items():
             with self.subTest(workflow=name), tempfile.TemporaryDirectory() as workspace:
                 (step,) = [s for s in self.steps(name) if s.get("name") == STEP_NAME]
@@ -314,8 +337,8 @@ class WorkflowIntegrationTest(unittest.TestCase):
                 # Deployment checkouts beside the caller project are not inspected.
                 make(workspace, "gitops/.agent-standards.yml", "ansible/.agents/core/x.md")
                 result, summary = run_check(step["run"], workspace, step_env(step))
-                self.assertEqual(result.returncode, 0, result.stderr)
-                found = warnings(result.stdout)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                found = errors(result.stdout)
                 self.assertEqual(len(found), 2, result.stdout)
                 self.assertIn(".agent-standards.yml", found[0])
                 self.assertIn(".claude/skills/x", found[1])
@@ -330,6 +353,7 @@ class WorkflowIntegrationTest(unittest.TestCase):
                 make(os.path.join(workspace, root), "src/index.js")
                 result, summary = run_check(step["run"], workspace, step_env(step, "failure"))
                 self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(errors(result.stdout), [])
                 found = warnings(result.stdout)
                 self.assertEqual(len(found), 1, result.stdout)
                 self.assertIn("not checked", found[0])
@@ -380,11 +404,13 @@ class SparseCheckoutIntegrationTest(unittest.TestCase):
             (step,) = [s for s in workflow_steps(name)
                        if s.get("name") == STEP_NAME]
             result, summary = run_check(step["run"], workspace, step_env(step))
-            self.assertEqual(result.returncode, 0, result.stderr)
+            found = errors(result.stdout)
+            self.assertEqual(result.returncode, 1 if found else 0, result.stderr)
+            self.assertEqual(warnings(result.stdout), [])
             checked_out = sorted(str(p.relative_to(workspace / root))
                                  for p in (workspace / root).rglob("*")
                                  if ".git" not in p.relative_to(workspace / root).parts)
-            return warnings(result.stdout), summary, checked_out
+            return found, summary, checked_out
 
     def deployments(self):
         return [name for name, root in REUSABLE.items() if root != "."]
@@ -399,9 +425,9 @@ class SparseCheckoutIntegrationTest(unittest.TestCase):
                 found, summary, checked_out = self.run_deployment(name, build)
                 self.assertEqual(len(found), 2, found)
                 self.assertTrue(found[0].startswith(
-                    "::warning title=Copied agent standards::.agents "), found)
+                    "::error title=Copied agent standards::.agents "), found)
                 self.assertTrue(found[1].startswith(
-                    "::warning title=Copied agent standards::.claude "), found)
+                    "::error title=Copied agent standards::.claude "), found)
                 self.assertNotIn("None found", summary)
                 self.assertEqual(checked_out, [".agents", ".claude"])
 
@@ -418,7 +444,7 @@ class SparseCheckoutIntegrationTest(unittest.TestCase):
                                               ".claude/skills/x .agents y",
                                               ".agents/skills/hidden"]):
                     self.assertTrue(line.startswith(
-                        f"::warning title=Copied agent standards::{path} "), line)
+                        f"::error title=Copied agent standards::{path} "), line)
                 for unrelated in (".agents/README.md", ".claude/settings.json",
                                   ".claude/other", "src"):
                     self.assertNotIn(unrelated, checked_out)
