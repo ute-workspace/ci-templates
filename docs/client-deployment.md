@@ -14,3 +14,106 @@ For Docker Compose use a dedicated, client-approved self-hosted runner that:
 For Kubernetes, use the release workflow to create a reviewed change in the
 client GitOps repository; Argo CD applies it. Do not store kubeconfig in a
 general CI secret when an in-cluster GitOps controller can reconcile safely.
+
+## Development stacks on Compose or Portainer Git stacks
+
+Client development environments that run as Docker Compose stacks, including
+Portainer Git stacks that redeploy on every commit, follow these rules. They
+apply to development environments only: production deployments use the
+runner and Ansible or the GitOps path above, and none of this repository's
+reusable workflows drive Portainer.
+
+### Locally built images
+
+Set `pull_policy: never` on every service whose image is built on the host and
+exists in no registry. When the stack re-pulls images on redeploy (Portainer's
+re-pull image option, `docker compose pull` or `up --pull always`), the pull
+of such an image fails without this setting, and so does the redeploy.
+
+```yaml
+services:
+  api:
+    image: example-api:latest
+    pull_policy: never
+```
+
+### No host ports
+
+Publish no host ports (`ports:`). Each web service joins the reverse proxy
+network and is reached only by its domain through the proxy (for example a
+Traefik router with TLS). Host ports of different projects on one host
+collide.
+
+A development domain is never reachable from the internet without access
+control: put its router on an internal-only entrypoint or behind a VPN, an
+IP allowlist, or forward-auth or basic-auth middleware. Dev servers serve
+unbundled source and source maps and are not hardened; keep them patched,
+and keep `.env` out of the directory they serve.
+
+### Dev servers behind the proxy
+
+Vite, webpack-dev-server and the Angular dev server reject requests whose
+`Host` header is not in their allowed list. Use one of:
+
+- the proxy does not forward the original host, so the dev server receives
+  the container address (Traefik:
+  `traefik.http.services.<name>.loadbalancer.passhostheader=false`);
+- the project adds the domain to the framework's allowed hosts
+  (`server.allowedHosts` in Vite, `allowedHosts` in webpack-dev-server or in
+  `angular.json` serve options). Angular's Vite-based dev server ignores
+  `--disable-host-check`. List the exact domain; never `allowedHosts: true`
+  or `'all'`, which switch off the DNS-rebinding protection.
+
+### On-demand services
+
+Development services that are started only when needed belong to a Compose
+profile, so `docker compose up` and a Git-stack redeploy skip them, and use
+`restart: "no"`. Start one with `docker compose --profile tools up -d <service>`
+or `docker compose --profile tools run --rm <service>`. Long-running services
+keep `restart: unless-stopped`.
+
+```yaml
+services:
+  migrate:
+    image: example-api:latest
+    profiles: [tools]
+    restart: "no"
+```
+
+### Secrets
+
+- Secrets stay in the project's git-ignored `.env`; they are never committed
+  to the application repository or to the stack repository.
+- The `.env` file is bind-mounted read-only and read by the service at start.
+  `env_file:` is not used: its path resolves inside the stack's Git clone,
+  where the git-ignored file does not exist, and the values would show in
+  `docker inspect`. The file is sourced by `sh`, so:
+  - every value is a valid shell assignment; put secret values in single
+    quotes, so `$`, `$(...)` and backticks are not expanded or run (a
+    generated secret then contains no `'`);
+  - the file is code: only the operator may write it (mode `0600`, or
+    `0640` with the container user's group);
+  - the values are in the process environment, so `docker exec <c> env`
+    still shows them;
+  - the image needs `sh`, and `command` replaces its default command.
+
+  ```yaml
+  services:
+    api:
+      volumes:
+        - type: bind
+          source: /path/to/project/.env
+          target: /run/app.env
+          read_only: true
+      command:
+        - sh
+        - -c
+        - set -a && . /run/app.env && set +a && exec node server.js
+  ```
+
+- Compose files contain no literal credentials. A database service with a
+  fixed password such as `MYSQL_ROOT_PASSWORD: <literal>` in the compose
+  file is an anti-pattern: the password is committed, shared by every
+  environment and cannot be rotated without a commit. Use the image's
+  `*_FILE` variant (for example `MYSQL_ROOT_PASSWORD_FILE`) with a
+  bind-mounted file or a Compose `secrets:` entry instead.
