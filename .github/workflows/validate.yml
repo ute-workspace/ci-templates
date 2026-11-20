@@ -36,5 +36,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The hooks need no token; keep it out of .git/config.
+          persist-credentials: false
       - name: Run pre-commit hooks on all files
         run: pipx run pre-commit==4.7.0 run --all-files --show-diff-on-failure

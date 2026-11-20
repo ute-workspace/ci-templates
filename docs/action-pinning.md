@@ -16,6 +16,10 @@ Renovate (`renovate.json`, preset `helpers:pinGitHubActionDigests`) proposes
 updates of the SHA and its comment; a major version update is reviewed and
 released as its own change.
 
+The hooks of `.pre-commit-config.yaml`, which the `lint` job runs, are pinned
+the same way (`rev: <SHA>  # frozen: vX.Y.Z`, as `pre-commit autoupdate
+--freeze` writes them); Renovate's `pre-commit` manager updates them.
+
 Callers pin this repository the same way: a release tag (`vX.Y.Z`) or a
 commit SHA. A moving major tag (`v1`) is a convenience for non-sensitive
 workflows only. Do not use an unreviewed pull request branch or a mutable

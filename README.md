@@ -29,5 +29,6 @@ pre-commit run --all-files                 # hygiene hooks, gitleaks, yamllint, 
 python3 -m unittest discover -s tests -v   # unit and workflow integration tests
 ```
 
-`validate.yml` runs the same checks on every pull request and push to `main`;
+`validate.yml` runs the same checks on pull requests that are not drafts and
+on push to `main`;
 see [docs/ci-cd.md](docs/ci-cd.md).
