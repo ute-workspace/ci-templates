@@ -63,7 +63,7 @@ jobs:
             exit 0
           }
           [ "$outcome" = success ] || not_checked "failed (checkout outcome: ${outcome:-unknown})"
-          [ -d "$root" ] && [ ! -L "$root" ] || not_checked "not found"
+          if [ ! -d "$root" ] || [ -L "$root" ]; then not_checked "not found"; fi
           found=()
           linked=" "
           for parent in .agents .claude; do
