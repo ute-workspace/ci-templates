@@ -18,3 +18,17 @@ GitHub-hosted runner → GitOps pull request → client/internal Argo CD
 
 Use immutable tags or commit SHAs when calling reusable workflows. `v1` is a
 convenience major line; sensitive production workflows should pin a commit SHA.
+
+## Development
+
+Needs Python 3 with PyYAML, `git`, `bash` and [pre-commit](https://pre-commit.com/).
+
+```bash
+pre-commit install                         # run the hooks on every commit
+pre-commit run --all-files                 # hygiene hooks, gitleaks, yamllint, actionlint, shellcheck, ruff
+python3 -m unittest discover -s tests -v   # unit and workflow integration tests
+```
+
+`validate.yml` runs the same checks on pull requests that are not drafts and
+on push to `main`;
+see [docs/ci-cd.md](docs/ci-cd.md).

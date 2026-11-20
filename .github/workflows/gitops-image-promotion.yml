@@ -42,7 +42,7 @@ jobs:
       - name: Checkout caller project for copied standards check
         id: caller-checkout
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: caller-project
           persist-credentials: false
@@ -124,7 +124,7 @@ jobs:
           exit 1
 
       - name: Checkout GitOps repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: ${{ inputs.gitops-repository }}
           ref: ${{ inputs.gitops-ref }}
@@ -132,7 +132,7 @@ jobs:
           path: gitops
 
       - name: Install Kustomize
-        uses: imranismail/setup-kustomize@v2
+        uses: imranismail/setup-kustomize@2ba527d4d055ab63514ba50a99456fc35684947f # v2.1.0
 
       - name: Update image and validate rendered manifests
         id: promotion

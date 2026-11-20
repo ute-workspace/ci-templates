@@ -9,12 +9,16 @@ on:
 permissions:
   contents: read
 
+# Checkouts do not persist the token: no job needs it after the checkout.
+
 jobs:
   yaml:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Parse all workflow YAML
         run: |
           python3 - <<'PY'
@@ -25,8 +29,20 @@ jobs:
 
   tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Run unit and workflow integration tests
         run: python3 -m unittest discover -s tests -v
+
+  lint:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Run pre-commit hooks on all files
+        run: pipx run pre-commit==4.7.0 run --all-files --show-diff-on-failure

@@ -1,4 +1,8 @@
 {
-  "extends": ["config:recommended"],
-  "dependencyDashboard": true
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "dependencyDashboard": true,
+  "labels": ["dependencies"],
+  "pre-commit": {
+    "enabled": true
+  }
 }

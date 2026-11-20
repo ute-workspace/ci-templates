@@ -1,0 +1,12 @@
+---
+extends: default
+
+rules:
+  # GitHub Actions workflows start without `---` and use the `on:` key.
+  document-start: disable
+  truthy:
+    check-keys: false
+  # 20 existing lines are longer than 120 characters: reported, not failing.
+  line-length:
+    max: 120
+    level: warning
