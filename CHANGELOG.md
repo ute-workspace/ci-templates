@@ -5,6 +5,10 @@ Release notes of each `vX.Y.Z` tag; how a release is made:
 
 ## [Unreleased]
 
+### Added
+- Licensed under Apache-2.0 (`LICENSE`, `NOTICE`); copyright holder Under
+  Tree Entertainment.
+
 ## [2.0.0] - 2026-11-20
 
 The copied agent standards check now fails caller jobs; callers on `@v1`
