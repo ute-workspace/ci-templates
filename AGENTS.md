@@ -30,15 +30,18 @@ PY
 
 # Unit and workflow integration tests
 python3 -m unittest discover -s tests -v
-```
 
-`actionlint` and `yamllint` are not configured.
+# Linters and hygiene hooks (pre-commit-hooks, gitleaks, yamllint,
+# actionlint, shellcheck, ruff); `pre-commit install` runs them on commit
+pre-commit run --all-files
+```
 
 ## Gates
 
-- Run both commands above before opening a PR or marking it ready.
-- `validate.yml` runs the same `yaml` and `tests` jobs on pull requests and
-  on push to `main`; both jobs are skipped while a PR is a draft.
+- Run the commands above before opening a PR or marking it ready.
+- `validate.yml` runs the same `yaml`, `tests` and `lint` jobs on pull
+  requests and on push to `main`; they are skipped while a PR is a draft.
+  It is the required check.
 - `CODEOWNERS` governs required review.
 
 ## Project rules
@@ -50,7 +53,8 @@ python3 -m unittest discover -s tests -v
   on a mutable ref. Treat workflow inputs, outputs, secrets and permissions
   as a public interface and document changes in `docs/architecture.md`,
   `docs/product-overview.md` and `examples/`.
-- Third-party actions follow `docs/action-pinning.md`.
+- Third-party actions are pinned to a commit SHA with the version as a
+  comment (`docs/action-pinning.md`); Renovate keeps the pins current.
 - After changing `scripts/check-copied-standards.sh`, copy its body (without
   the leading `#` comment lines) into the "Check for copied agent standards"
   step of every reusable workflow; the tests fail until all copies match.

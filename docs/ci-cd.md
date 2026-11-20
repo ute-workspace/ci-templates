@@ -9,8 +9,9 @@ see `docs/product-overview.md` for what those workflows do and
 ## CI/CD model
 
 `validate.yml` runs on pull requests (opened, synchronize, reopened,
-ready_for_review) and on push to `main`. Its `yaml` and `tests` jobs are
-skipped for draft pull requests.
+ready_for_review) and on push to `main`. Its `yaml`, `tests` and `lint`
+jobs are skipped for draft pull requests. All jobs run on `ubuntu-24.04`
+and use actions pinned to a commit SHA (`docs/action-pinning.md`).
 
 ## Pipeline owner
 
@@ -26,8 +27,14 @@ Markdown docs, not compiled or bundled artifacts.
 
 The `yaml` job parses every file under `.github/workflows/*.y*ml` with
 PyYAML (`yaml.safe_load`) to catch malformed YAML. It does not execute the
-workflows themselves or lint their semantics (no `actionlint`/`yamllint`
-step is configured).
+workflows themselves; their semantics are linted by the `lint` job.
+
+The `lint` job runs every hook of `.pre-commit-config.yaml` on all files
+(`pipx run pre-commit==4.7.0 run --all-files`): the pre-commit-hooks
+hygiene hooks, gitleaks, yamllint (`.yamllint.yml`; lines over 120
+characters are warnings), actionlint with shellcheck
+(`.github/actionlint.yaml` ignores the existing SC2034 findings), shellcheck
+for `scripts/` and ruff for `tests/`.
 
 The `tests` job runs `python3 -m unittest discover -s tests -v`.
 `tests/test_copied_standards.py` covers the copied agent standards check
@@ -69,10 +76,9 @@ those are supplied by the calling/consumer repository, not this one.
 
 ## Local gates
 
-Before opening or updating a PR, run the same YAML-parsing check the
-`yaml` job runs. `actionlint` and `yamllint` are not installed in this
-environment, so this Python/PyYAML snippet is the fallback used both here
-and by the job itself:
+Before opening or updating a PR, run the hooks the `lint` job runs
+(`pre-commit install` once, or `pre-commit run --all-files`), and the same
+YAML-parsing check the `yaml` job runs:
 
 ```bash
 python3 - <<'PY'

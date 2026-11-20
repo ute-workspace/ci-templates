@@ -1,0 +1,9 @@
+# Existing findings, kept until they are fixed in a separate change:
+# SC2034 for the unused retry counter `i` of the Node health-check loops.
+paths:
+  .github/workflows/node-ci.yml:
+    ignore:
+      - 'SC2034:.+'
+  .github/workflows/node-container-release.yml:
+    ignore:
+      - 'SC2034:.+'

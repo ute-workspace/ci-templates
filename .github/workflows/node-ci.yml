@@ -23,7 +23,7 @@ jobs:
   node-ci:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Check for copied agent standards
         shell: bash
         run: |
@@ -86,7 +86,7 @@ jobs:
             printf -- '- <code>%s</code>\n' "$(md "$path")" >> "$summary"
           done
           exit 1
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm

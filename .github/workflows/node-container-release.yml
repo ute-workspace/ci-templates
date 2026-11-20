@@ -35,7 +35,7 @@ jobs:
     outputs:
       image-ref: ${{ steps.image.outputs.ref }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Check for copied agent standards
         shell: bash
@@ -100,7 +100,7 @@ jobs:
           done
           exit 1
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: ${{ inputs.node-version }}
           cache: npm
@@ -125,14 +125,14 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/readyz >/dev/null
           npm test
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ inputs.image-name }}
           tags: |
@@ -140,7 +140,7 @@ jobs:
             type=sha,prefix=sha-
 
       - id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: ${{ inputs.dockerfile }}
@@ -150,7 +150,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Vulnerability scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           severity: HIGH,CRITICAL
@@ -185,7 +185,7 @@ jobs:
       # this step fails after the image push above has already
       # succeeded; continue-on-error keeps that failure from failing the
       # whole release.
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         continue-on-error: true
         with:
           subject-name: ghcr.io/${{ inputs.image-name }}
