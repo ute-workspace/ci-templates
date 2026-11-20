@@ -18,13 +18,17 @@ general CI secret when an in-cluster GitOps controller can reconcile safely.
 ## Development stacks on Compose or Portainer Git stacks
 
 Client development environments that run as Docker Compose stacks, including
-Portainer Git stacks that redeploy on every commit, follow these rules.
+Portainer Git stacks that redeploy on every commit, follow these rules. They
+apply to development environments only: production deployments use the
+runner and Ansible or the GitOps path above, and none of this repository's
+reusable workflows drive Portainer.
 
 ### Locally built images
 
 Set `pull_policy: never` on every service whose image is built on the host and
-exists in no registry. A Git-stack redeploy pulls each image; without this
-setting the pull fails and the redeploy is retried on every sync cycle.
+exists in no registry. When the stack re-pulls images on redeploy (Portainer's
+re-pull image option, `docker compose pull` or `up --pull always`), the pull
+of such an image fails without this setting, and the redeploy fails with it.
 
 ```yaml
 services:
@@ -55,15 +59,30 @@ Vite, webpack-dev-server and the Angular dev server reject requests whose
 
 ### On-demand services
 
-Development services that are started only when needed use `restart: "no"`.
-The stack sync then does not report them as stopped or drifted.
-Long-running services keep `restart: unless-stopped`.
+Development services that are started only when needed belong to a Compose
+profile, so `docker compose up` and a Git-stack redeploy skip them, and use
+`restart: "no"`. Start one with `docker compose --profile tools up -d <service>`
+or `docker compose --profile tools run --rm <service>`. Long-running services
+keep `restart: unless-stopped`.
+
+```yaml
+services:
+  migrate:
+    image: example-api:latest
+    profiles: [tools]
+    restart: "no"
+```
 
 ### Secrets
 
 - Secrets stay in the project's git-ignored `.env`; they are never committed
   to the application repository or to the stack repository.
-- The `.env` file is bind-mounted read-only and read by the service at start:
+- The `.env` file is bind-mounted read-only and read by the service at start.
+  `env_file:` is not used: its path resolves inside the stack's Git clone,
+  where the git-ignored file does not exist, and the values would show in
+  `docker inspect`. The file is sourced by `sh`, so every value must be a
+  valid shell assignment (quote values with spaces or `$`), the image needs
+  `sh`, and `command` replaces the image's default command:
 
   ```yaml
   services:
@@ -79,7 +98,7 @@ Long-running services keep `restart: unless-stopped`.
         - set -a && . /run/app.env && set +a && exec node server.js
   ```
 
-- Compose files contain no literal credentials. A database service with
-  `MYSQL_ROOT_PASSWORD: admin` (or any other fixed password) in the compose
+- Compose files contain no literal credentials. A database service with a
+  fixed password such as `MYSQL_ROOT_PASSWORD: <literal>` in the compose
   file is an anti-pattern: the password is committed, shared by every
   environment and cannot be rotated without a commit.
