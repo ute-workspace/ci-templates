@@ -100,3 +100,14 @@ workflow file parsed successfully.
 After changing `scripts/check-copied-standards.sh`, copy its body (without
 the leading `#` comment lines) into the "Check for copied agent standards"
 step of every reusable workflow; the tests fail until all copies match.
+
+## SonarQube
+
+SonarQube is internal and reachable only from Jenkins, so the repository's
+`Jenkinsfile` (on `jenkins-library`, `ci-standard` agents only) runs the
+copied agent standards check, a gitleaks scan, the unit and workflow
+integration tests and `sonarQubeScan()`, which waits for the quality gate.
+No coverage report is sent: the shipped code is YAML and shell, which
+Python coverage does not measure.
+`sonar-project.properties` sets the sources; the project key is the
+repository name. The required check stays `validate.yml`.
