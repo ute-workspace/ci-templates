@@ -1,5 +1,7 @@
 # ci-templates
 
+[![](https://img.shields.io/badge/python-3.13-green)](https://www.python.org/) [![](https://img.shields.io/badge/actionlint-1.7.12-green)](https://github.com/rhysd/actionlint) [![](https://img.shields.io/badge/yamllint-1.38.0-green)](https://yamllint.readthedocs.io/) [![](https://img.shields.io/badge/shellcheck-0.11.0-green)](https://www.shellcheck.net/) [![](https://img.shields.io/badge/ruff-0.17.6-green)](https://docs.astral.sh/ruff/) ![](https://img.shields.io/badge/cleanup-2026--11--20-blue) [![](https://img.shields.io/badge/repo--cleanup--audit-v1.0.0-blueviolet)](https://github.com/ute-workspace/agent-standards/blob/04ac8cd3158f75fefc8bd5986f58706af005ab63/skills/repo-cleanup-audit/SKILL.md) <!-- repo-cleanup-audit -->
+
 Public, versioned reusable GitHub Actions workflows for internal and client repositories.
 
 The repository contains generic CI/CD code only: no internal network topology, no
