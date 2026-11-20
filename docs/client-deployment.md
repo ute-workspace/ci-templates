@@ -28,7 +28,7 @@ reusable workflows drive Portainer.
 Set `pull_policy: never` on every service whose image is built on the host and
 exists in no registry. When the stack re-pulls images on redeploy (Portainer's
 re-pull image option, `docker compose pull` or `up --pull always`), the pull
-of such an image fails without this setting, and the redeploy fails with it.
+of such an image fails without this setting, and so does the redeploy.
 
 ```yaml
 services:
