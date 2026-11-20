@@ -44,6 +44,12 @@ network and is reached only by its domain through the proxy (for example a
 Traefik router with TLS). Host ports of different projects on one host
 collide.
 
+A development domain is never reachable from the internet without access
+control: put its router on an internal-only entrypoint or behind a VPN, an
+IP allowlist, or forward-auth or basic-auth middleware. Dev servers serve
+unbundled source and source maps and are not hardened; keep them patched,
+and keep `.env` out of the directory they serve.
+
 ### Dev servers behind the proxy
 
 Vite, webpack-dev-server and the Angular dev server reject requests whose
@@ -55,7 +61,8 @@ Vite, webpack-dev-server and the Angular dev server reject requests whose
 - the project adds the domain to the framework's allowed hosts
   (`server.allowedHosts` in Vite, `allowedHosts` in webpack-dev-server or in
   `angular.json` serve options). Angular's Vite-based dev server ignores
-  `--disable-host-check`.
+  `--disable-host-check`. List the exact domain; never `allowedHosts: true`
+  or `'all'`, which switch off the DNS-rebinding protection.
 
 ### On-demand services
 
@@ -80,9 +87,14 @@ services:
 - The `.env` file is bind-mounted read-only and read by the service at start.
   `env_file:` is not used: its path resolves inside the stack's Git clone,
   where the git-ignored file does not exist, and the values would show in
-  `docker inspect`. The file is sourced by `sh`, so every value must be a
-  valid shell assignment (quote values with spaces or `$`), the image needs
-  `sh`, and `command` replaces the image's default command:
+  `docker inspect`. The file is sourced by `sh`, so:
+  - every value is a valid shell assignment; put secret values in single
+    quotes, so `$`, `$(...)` and backticks are not expanded or run;
+  - the file is code: only the operator may write it (mode `0600`, or
+    `0640` with the container user's group);
+  - the values are in the process environment, so `docker exec <c> env`
+    still shows them;
+  - the image needs `sh`, and `command` replaces its default command.
 
   ```yaml
   services:
@@ -101,4 +113,6 @@ services:
 - Compose files contain no literal credentials. A database service with a
   fixed password such as `MYSQL_ROOT_PASSWORD: <literal>` in the compose
   file is an anti-pattern: the password is committed, shared by every
-  environment and cannot be rotated without a commit.
+  environment and cannot be rotated without a commit. Use the image's
+  `*_FILE` variant (for example `MYSQL_ROOT_PASSWORD_FILE`) with a
+  bind-mounted file or a Compose `secrets:` entry instead.
