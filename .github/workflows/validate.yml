@@ -22,3 +22,11 @@ jobs:
           for path in pathlib.Path('.github/workflows').glob('*.y*ml'):
               yaml.safe_load(path.read_text())
           PY
+
+  tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit and workflow integration tests
+        run: python3 -m unittest discover -s tests -v
