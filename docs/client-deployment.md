@@ -89,7 +89,8 @@ services:
   where the git-ignored file does not exist, and the values would show in
   `docker inspect`. The file is sourced by `sh`, so:
   - every value is a valid shell assignment; put secret values in single
-    quotes, so `$`, `$(...)` and backticks are not expanded or run;
+    quotes, so `$`, `$(...)` and backticks are not expanded or run (a
+    generated secret then contains no `'`);
   - the file is code: only the operator may write it (mode `0600`, or
     `0640` with the container user's group);
   - the values are in the process environment, so `docker exec <c> env`
