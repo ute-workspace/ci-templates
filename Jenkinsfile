@@ -11,6 +11,11 @@ pipeline {
     // Bounds the wait for a free agent and the run itself.
     timeout(time: 45, unit: 'MINUTES')
   }
+  environment {
+    // Pinned by digest: when updating, change the tag and the digest
+    // together.
+    PYTHON_IMAGE = 'python:3.13-bookworm@sha256:cc55e4ded9c95f6ce2133b3d096db43f214d280c2a8af65d83e246c8fa7d168c'
+  }
   stages {
     stage('Copied agent standards') {
       steps { copiedAgentStandardsCheck() }
@@ -28,7 +33,7 @@ pipeline {
         sh """#!/usr/bin/env bash
           set -euo pipefail
           docker run --rm --user "\$(id -u):\$(id -g)" -e HOME=/tmp \\
-            -v "\$WORKSPACE:/workspace" -w /workspace python:3.13-bookworm sh -lc '
+            -v "\$WORKSPACE:/workspace" -w /workspace "\$PYTHON_IMAGE" sh -lc '
             pip install --quiet --user PyYAML==6.0.2
             git config --global --add safe.directory "*"
             python3 -m unittest discover -s tests -v
