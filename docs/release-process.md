@@ -11,12 +11,13 @@ that callers reference from their `uses:` line.
   Templates` run on `main` passed.
 - **Steps.**
   1. In a pull request, rename `## [Unreleased]` in `CHANGELOG.md` to
-     `## [X.Y.Z] - <date>`.
+     `## [X.Y.Z] - <date>` and add a new empty `## [Unreleased]` above it.
   2. After the merge, tag that commit and publish a GitHub Release with the
      section as notes:
      `gh release create vX.Y.Z --target <sha> --title vX.Y.Z --notes-file <section>`.
-  3. Move the major tag (`v1`, `v2`) to the same commit only for a minor or
-     patch release; a new major version gets a new major tag, and the old
-     one stays where it is.
+  3. Major tag: for a minor or patch release, move the major tag (`v1`)
+     to the same commit (`git tag -f v1 <sha> && git push -f origin v1`);
+     for a new major version, create its major tag (`git tag v2 <sha> &&
+     git push origin v2`) and leave the old one where it is.
 - **Callers** pin `vX.Y.Z` or its commit SHA (`docs/action-pinning.md`);
   the major tag is a convenience for non-sensitive workflows.

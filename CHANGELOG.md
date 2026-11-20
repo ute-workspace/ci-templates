@@ -16,15 +16,20 @@ Planned as `v2.0.0`: the copied agent standards check now fails caller jobs.
 ### Changed
 - Third-party actions in every reusable workflow are pinned to commit SHAs
   of their current major releases.
-- `node-container-release.yml` writes its smoke-test log to
-  `/tmp/node-release.log`.
 
 ## [1.0.0] - 2026-08-15
 
 The same commit as the `v1` tag.
 
-
 ### Added
+- Reusable Node CI workflow (`node-ci.yml`): Node.js lint and test only,
+  no image build or publish.
+- Reusable Ansible Deploy workflow (`ansible-deploy.yml`): runs an Ansible
+  playbook from an external, pinned Ansible repository on a self-hosted
+  deployment runner.
+- Reusable GitOps Image Promotion workflow (`gitops-image-promotion.yml`):
+  opens a pull request in an external GitOps repository that updates a
+  Kustomize image reference to an immutable digest.
 - Reusable Container Release workflow (`container-release.yml`): builds a
   container image, pushes it to GHCR, and outputs an immutable
   digest-pinned image reference.
