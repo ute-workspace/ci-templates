@@ -34,3 +34,8 @@ python3 -m unittest discover -s tests -v   # unit and workflow integration tests
 `validate.yml` runs the same checks on pull requests that are not drafts and
 on push to `main`;
 see [docs/ci-cd.md](docs/ci-cd.md).
+
+## License
+
+Copyright 2026 Under Tree Entertainment. Licensed under the
+[Apache License, Version 2.0](LICENSE); see [NOTICE](NOTICE).
