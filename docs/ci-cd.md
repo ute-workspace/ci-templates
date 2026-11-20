@@ -32,9 +32,8 @@ workflows themselves; their semantics are linted by the `lint` job.
 The `lint` job runs every hook of `.pre-commit-config.yaml` on all files
 (`pipx run pre-commit==4.7.0 run --all-files`): the pre-commit-hooks
 hygiene hooks, gitleaks, yamllint (`.yamllint.yml`; lines over 120
-characters are warnings), actionlint with shellcheck
-(`.github/actionlint.yaml` ignores the existing SC2034 findings), shellcheck
-for `scripts/` and ruff for `tests/`.
+characters are warnings), actionlint with shellcheck,
+shellcheck for `scripts/` and ruff for `tests/`.
 
 The `tests` job runs `python3 -m unittest discover -s tests -v`.
 `tests/test_copied_standards.py` covers the copied agent standards check
