@@ -5,7 +5,10 @@ Release notes of each `vX.Y.Z` tag; how a release is made:
 
 ## [Unreleased]
 
-Planned as `v2.0.0`: the copied agent standards check now fails caller jobs.
+## [2.0.0] - 2026-11-20
+
+The copied agent standards check now fails caller jobs; callers on `@v1`
+stay on 1.0.0 until they move to `@v2.0.0` (or `@v2`).
 
 ### Breaking
 - Every reusable workflow fails the job when the caller project contains
@@ -16,6 +19,12 @@ Planned as `v2.0.0`: the copied agent standards check now fails caller jobs.
 ### Changed
 - Third-party actions in every reusable workflow are pinned to commit SHAs
   of their current major releases.
+
+### Added
+- `docs/client-deployment.md`: rules for client development stacks on
+  Docker Compose or Portainer Git stacks (local images, no host ports, dev
+  servers behind the proxy with access control, on-demand services,
+  secrets).
 
 ## [1.0.0] - 2026-08-15
 
