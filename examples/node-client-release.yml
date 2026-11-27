@@ -16,3 +16,6 @@ jobs:
     with:
       image-name: YOUR_ORG/YOUR_SERVICE
       working-directory: src
+      # From v3: a private repository on a GitHub plan without
+      # attestations sets `attest: skip` (default `required` fails the job).
+      # attest: skip

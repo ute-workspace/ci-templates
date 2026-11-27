@@ -5,6 +5,14 @@ Release notes of each `vX.Y.Z` tag; how a release is made:
 
 ## [Unreleased]
 
+### Breaking
+- `container-release.yml` and `node-container-release.yml`: build
+  provenance attestation is no longer best-effort. A failed attestation
+  now fails the job (it was ignored with `continue-on-error`). A new
+  `attest` input (`required`, the default, or `skip`) lets a private
+  repository whose GitHub plan cannot store attestations opt out; `skip`
+  reports the image as "Not attested" in a warning and the job summary.
+
 ### Added
 - Licensed under Apache-2.0 (`LICENSE`, `NOTICE`); copyright holder Under
   Tree Entertainment.
