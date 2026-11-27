@@ -21,6 +21,34 @@ GitHub-hosted runner → GitOps pull request → client/internal Argo CD
 Use immutable tags or commit SHAs when calling reusable workflows. `v1` is a
 convenience major line; sensitive production workflows should pin a commit SHA.
 
+## Build provenance of released images
+
+`container-release.yml` and `node-container-release.yml` take an `attest`
+input:
+
+- `required` (default): attest the pushed image digest with
+  `actions/attest-build-provenance`; the job fails when the attestation
+  fails or does not run. Earlier releases ignored that failure.
+- `skip`: no attestation; a "Not attested" warning and job summary say so.
+  Use it for a private repository whose GitHub plan cannot store
+  attestations ("Feature not available ... make this repository public").
+
+The caller grants `packages: write`, `attestations: write` and
+`id-token: write` in both modes. The image is pushed before it is
+attested, so after a failed attestation its tags already point to an
+unattested image; the job summary names it. With `skip`, the run log, the
+pushed digest and the image's OCI labels trace the image to its commit,
+but nothing makes that independently verifiable.
+
+```yaml
+jobs:
+  release:
+    uses: ute-workspace/ci-templates/.github/workflows/container-release.yml@<commit SHA> # v3.0.0
+    with:
+      image-name: YOUR_ORG/YOUR_IMAGE
+      attest: skip   # private repository on a plan without attestations
+```
+
 ## Development
 
 Needs Python 3 with PyYAML, `git`, `bash` and [pre-commit](https://pre-commit.com/).

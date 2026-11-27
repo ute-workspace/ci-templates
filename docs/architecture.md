@@ -69,8 +69,17 @@ image locally (`push: false, load: true`) -> Trivy scan of the local image
 (fails the job on HIGH/CRITICAL findings, `trivyignores` narrows this on
 `container-release.yml`) -> `docker push --all-tags` -> parse the pushed
 digest from `docker push`'s own output -> emit `image-ref` as
-`ghcr.io/<image-name>@sha256:...` -> best-effort build-provenance
-attestation (`continue-on-error: true`).
+`ghcr.io/<image-name>@sha256:...` -> build-provenance attestation of the
+pushed digest -> report the attestation result in the job summary.
+The `attest` input (checked first, before anything is built) is `required`
+(default) or `skip`. `required` fails the job when attestation fails or
+does not run; the image is already pushed by then, and the summary says
+it is not attested. `skip` does not attest and reports the image as
+"Not attested" (`::warning` and summary), never as attested. GitHub stores
+attestations for a private repository only on some billing plans, so a
+private caller on such a plan sets `attest: skip`. The job permissions
+(`attestations: write`, `id-token: write`) are the same in both modes,
+so the caller still grants them.
 
 Ansible deploy: sparse-checkout the caller project to `caller-project`
 -> copied standards check -> install a private SSH key from secrets -> checkout a
@@ -91,7 +100,7 @@ and open a pull request in the GitOps repository for review.
 - **Trivy** (`aquasecurity/trivy-action`) — vulnerability scan of the
   locally built image before it is pushed.
 - **`actions/attest-build-provenance`** — build provenance attestation,
-  best-effort (`continue-on-error: true`).
+  required by default; a caller opts out with `attest: skip`.
 - **Node.js / npm** (`actions/setup-node`) — install, lint, start, and test
   a Node.js application before building its image (`node-ci.yml`,
   `node-container-release.yml`).
@@ -160,9 +169,10 @@ results to the job log.
 - The copied standards check does not fail the job when it cannot inspect
   the caller project (missing or failed caller checkout, unreadable skills
   directory); it only warns.
-- Build-provenance attestation is best-effort: it does not fail the job on
-  error, so a consumer relying on attestations must check that step's
-  outcome separately.
+- A failed required attestation fails the job after the image is pushed:
+  the tags already point to an image without an attestation. With
+  `attest: skip` the image has no verifiable provenance; the run log, the
+  pushed digest and the image's OCI labels only trace it to its commit.
 - `gitops-image-promotion.yml` validates that the kustomization renders,
   but does not verify that Argo CD (or another controller) actually
   reconciles the resulting change.

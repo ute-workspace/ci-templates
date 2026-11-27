@@ -25,6 +25,16 @@ on:
         required: false
         default: ""
         type: string
+      attest:
+        description: >-
+          Build provenance attestation of the pushed image: `required`
+          (default) attests it and fails the job when attestation fails;
+          `skip` does not attest and reports the image as not attested
+          (job summary and warning). GitHub stores attestations for a
+          private repository only on some billing plans.
+        required: false
+        default: required
+        type: string
     outputs:
       image-ref:
         description: Immutable image reference, including digest.
@@ -41,6 +51,18 @@ jobs:
     outputs:
       image-ref: ${{ steps.image.outputs.ref }}
     steps:
+      - name: Check attest input
+        shell: bash
+        env:
+          ATTEST: ${{ inputs.attest }}
+        run: |
+          case "$ATTEST" in
+            required | skip) ;;
+            *)
+              echo "::error title=Invalid input::attest must be 'required' or 'skip'"
+              exit 1
+              ;;
+          esac
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check for copied agent standards
         shell: bash
@@ -155,14 +177,37 @@ jobs:
         shell: bash
         run: |
           echo "ref=ghcr.io/${{ inputs.image-name }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_OUTPUT"
-      # Best-effort: some GitHub billing plans do not support build
-      # provenance attestations for private repositories, in which case
-      # this step fails after the image push above has already
-      # succeeded; continue-on-error keeps that failure from failing the
-      # whole release.
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        continue-on-error: true
+      # `attest: required` fails the job when attestation fails; the image
+      # has already been pushed by then, so the report step below says so.
+      - id: attest
+        name: Attest build provenance
+        if: ${{ inputs.attest == 'required' }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/${{ inputs.image-name }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+      - name: Report build provenance
+        if: ${{ always() && steps.push.outcome == 'success' }}
+        shell: bash
+        env:
+          ATTEST: ${{ inputs.attest }}
+          ATTEST_OUTCOME: ${{ steps.attest.outcome }}
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+        run: |
+          summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          case "$ATTEST:$ATTEST_OUTCOME" in
+            required:success)
+              echo "Build provenance attested for ${IMAGE_REF}"
+              printf '### Build provenance\n\nAttested: %s\n' "\`$IMAGE_REF\`" >> "$summary"
+              ;;
+            skip:*)
+              echo "::warning title=Not attested::attest is skip: the pushed image has no build provenance attestation"
+              printf '### Build provenance\n\n**Not attested** (%s): %s\n' "\`attest: skip\`" "\`$IMAGE_REF\`" >> "$summary"
+              ;;
+            *)
+              echo "::error title=Attestation failed::the image was pushed but has no build provenance attestation"
+              printf '### Build provenance\n\n**Attestation failed**; the image was already pushed and is not attested: %s\n' "\`$IMAGE_REF\`" >> "$summary"
+              exit 1
+              ;;
+          esac

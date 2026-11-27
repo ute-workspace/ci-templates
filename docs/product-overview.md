@@ -22,9 +22,11 @@ commit SHA from their own `.github/workflows/*.yml` files. See
 ## Main workflows
 
 - `container-release.yml` — generic build/scan/publish for a container
-  image.
+  image, with a build provenance attestation (`attest: required`, the
+  default) or a visible "Not attested" report (`attest: skip`).
 - `node-container-release.yml` — same, with a Node.js
-  install/lint/test/health-check pass before the image build.
+  install/lint/test/health-check pass before the image build; the same
+  `attest` input.
 - `node-ci.yml` — Node.js lint/test only, no image build or publish.
 - `ansible-deploy.yml` — runs an Ansible playbook from an external,
   pinned Ansible repository against a self-hosted deployment runner.
