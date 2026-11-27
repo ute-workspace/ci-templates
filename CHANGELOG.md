@@ -5,6 +5,12 @@ Release notes of each `vX.Y.Z` tag; how a release is made:
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-27
+
+A failed build provenance attestation now fails `container-release.yml`
+and `node-container-release.yml`; a private repository whose GitHub plan
+cannot store attestations sets `attest: skip` before moving to `@v3.0.0`.
+
 ### Breaking
 - `container-release.yml` and `node-container-release.yml`: build
   provenance attestation is no longer best-effort. A failed attestation
@@ -12,6 +18,10 @@ Release notes of each `vX.Y.Z` tag; how a release is made:
   `attest` input (`required`, the default, or `skip`) lets a private
   repository whose GitHub plan cannot store attestations opt out; `skip`
   reports the image as "Not attested" in a warning and the job summary.
+
+### Changed
+- `actions/attest-build-provenance` v4.2.2 and `actions/checkout` v7.0.1
+  in every reusable workflow that uses them.
 
 ### Added
 - Licensed under Apache-2.0 (`LICENSE`, `NOTICE`); copyright holder Under
